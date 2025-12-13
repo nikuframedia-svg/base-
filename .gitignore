@@ -79,6 +79,8 @@ frontend/.vite/
 frontend/.parcel-cache/
 frontend/.next/
 frontend/out/
+# Old frontend (replaced by factory-optimizer/frontend)
+frontend/
 factory-optimizer/frontend/dist/
 factory-optimizer/frontend/build/
 factory-optimizer/frontend/.vite/
