@@ -2,6 +2,33 @@
 
 Sistema industrial avançado para planeamento, produção, inventário inteligente, gestão de produtos e manutenção preditiva.
 
+## 🚀 Início Rápido
+
+### Iniciar Localhost (Backend + Frontend)
+
+```bash
+# Opção 1: Iniciar tudo de uma vez
+./scripts/start_localhost.sh
+
+# Opção 2: Iniciar separadamente
+# Terminal 1 - Backend
+./scripts/start_backend.sh
+
+# Terminal 2 - Frontend
+./scripts/start_frontend.sh
+```
+
+**URLs:**
+- 🌐 Frontend: http://localhost:5173
+- 🔧 Backend API: http://localhost:8000
+- 📚 API Docs: http://localhost:8000/docs
+
+### Requisitos
+
+- Python 3.9+
+- Node.js 18+
+- npm ou yarn
+
 ## 🏗️ Arquitetura
 
 ProdPlan 4.0 é um sistema modular composto por:

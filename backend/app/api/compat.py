@@ -14,11 +14,14 @@ router = APIRouter()
 
 
 @router.get("/plan")
-async def get_plan_compat():
+async def get_plan_compat(
+    batch_id: Optional[str] = Query(None, description="Batch ID"),
+    horizon_hours: int = Query(168, description="Horizonte de planeamento em horas"),
+):
     """Compatibilidade: /plan -> /api/planning/v2/plano"""
-    # Redirecionar para o endpoint correto
+    # Redirecionar para o endpoint correto, passando parâmetros de query
     from app.api.planning_v2 import get_plan
-    return await get_plan(batch_id=None, horizon_hours=168)
+    return await get_plan(batch_id=batch_id, horizon_hours=horizon_hours)
 
 
 @router.get("/plan/kpis")
@@ -57,6 +60,9 @@ async def get_plan_kpis():
         kpis = plano.kpis or {}
         
         # Calcular makespan
+        # Inicializar min_start e max_end para evitar UnboundLocalError
+        min_start = None
+        max_end = None
         if operations:
             min_start = min(op.start_time for op in operations)
             max_end = max(op.end_time for op in operations)
@@ -150,8 +156,8 @@ async def get_plan_kpis():
             "total_orders": total_orders,
             "total_articles": total_articles,
             "total_machines": total_machines,
-            "plan_start": min_start.isoformat() if operations else None,
-            "plan_end": max_end.isoformat() if operations else None,
+            "plan_start": min_start.isoformat() if min_start is not None else None,
+            "plan_end": max_end.isoformat() if max_end is not None else None,
         }
     except Exception as exc:
         logger.exception("Erro ao calcular KPIs do plano: %s", exc)

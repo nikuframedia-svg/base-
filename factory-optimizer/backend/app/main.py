@@ -3,8 +3,16 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from dotenv import load_dotenv
 
-from app.api import bottlenecks, chat, etl, insight, insights, inventory, planning, planning_chat, planning_v2, suggestions, technical_queries, whatif
+from app.api import bottlenecks, chat, compat, etl, insight, insights, inventory, planning, planning_chat, planning_v2, suggestions, technical_queries, whatif
 from app.etl.loader import get_loader, run_startup_etl
+
+# Import ops_ingestion router
+try:
+    from ops_ingestion.api import router as ops_ingestion_router
+    HAS_OPS_INGESTION = True
+except ImportError:
+    HAS_OPS_INGESTION = False
+    ops_ingestion_router = None
 
 
 load_dotenv()
@@ -32,6 +40,14 @@ app.include_router(suggestions.router, prefix="/api/suggestions", tags=["Suggest
 app.include_router(insight.router, prefix="/api/insight", tags=["Insight"])
 app.include_router(insights.router, prefix="/api/insights", tags=["Insights"])
 app.include_router(etl.router, prefix="/api", tags=["ETL"])
+app.include_router(compat.router, tags=["Compatibility"])
+
+# Include ops_ingestion router if available
+if HAS_OPS_INGESTION and ops_ingestion_router:
+    # O router tem prefix="/ops-ingestion", mas queremos /api/ops/wip-flow
+    # Vamos criar um router wrapper sem prefix para que fique /api/ops-ingestion/wip-flow
+    # OU podemos incluir diretamente e ajustar o frontend para usar /api/ops-ingestion/wip-flow
+    app.include_router(ops_ingestion_router, prefix="/api", tags=["Ops Ingestion"])
 
 
 @app.on_event("startup")
@@ -42,6 +58,17 @@ async def startup_event():
             get_loader().status.setdefault("startup_summary", summary)
     except Exception as exc:  # pylint: disable=broad-except
         get_loader().status.setdefault("startup_error", str(exc))
+
+
+@app.get("/")
+async def root():
+    """Root endpoint to avoid 404 errors."""
+    return {
+        "message": "ProdPlan 4.0 API",
+        "version": "1.0.0",
+        "docs": "/docs",
+        "health": "/api/health"
+    }
 
 
 @app.get("/api/health")

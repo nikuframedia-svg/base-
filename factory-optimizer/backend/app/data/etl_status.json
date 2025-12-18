@@ -1,132 +1,12 @@
 {
-  "last_run": "2025-12-10T01:46:31.853366",
-  "last_import_at": "2025-12-10T01:46:31.853366",
+  "last_run": "2025-12-18T19:24:48.781101",
+  "last_import_at": "2025-12-18T19:24:48.781101",
   "files": [
     {
       "filename": "Nikufra DadosProducao.xlsx",
       "path": "/Users/martimnicolau/mvp geral/factory-optimizer/backend/app/data/Nikufra DadosProducao.xlsx",
-      "size_bytes": 7283,
-      "modified_at": "2025-11-25T14:04:21.986465",
-      "status": "processed",
-      "summary": {
-        "artigos": 10,
-        "skus": 0
-      },
-      "sheets": [
-        {
-          "sheet": "Roteiros",
-          "type": "roteiros",
-          "status": "ok",
-          "mapped_pct": 100.0
-        },
-        {
-          "sheet": "Staffing",
-          "type": "staffing",
-          "status": "ok",
-          "mapped_pct": 100.0
-        },
-        {
-          "sheet": "Ordens",
-          "type": "ordens",
-          "status": "ok",
-          "mapped_pct": 100.0
-        }
-      ],
-      "warnings": [],
-      "timestamp": "2025-11-25T14:04:24.028976"
-    },
-    {
-      "filename": "Nikufra Stocks.xlsx",
-      "path": "/Users/martimnicolau/mvp geral/factory-optimizer/backend/app/data/Nikufra Stocks.xlsx",
-      "size_bytes": 25701,
-      "modified_at": "2025-11-25T14:04:22.764494",
-      "status": "processed",
-      "summary": {
-        "artigos": 0,
-        "skus": 8
-      },
-      "sheets": [
-        {
-          "sheet": "Stocks_mov",
-          "type": "stocks_mov",
-          "status": "ok",
-          "mapped_pct": 100.0
-        },
-        {
-          "sheet": "Stocks_snap",
-          "type": "stocks_snap",
-          "status": "ok",
-          "mapped_pct": 100.0
-        }
-      ],
-      "warnings": [],
-      "timestamp": "2025-11-25T14:04:24.813115"
-    },
-    {
-      "filename": "Nikufra DadosProducao.xlsx",
-      "path": "/Users/martimnicolau/mvp geral/factory-optimizer/backend/app/data/Nikufra DadosProducao.xlsx",
-      "size_bytes": 7283,
-      "modified_at": "2025-11-25T14:04:21.986465",
-      "status": "processed",
-      "summary": {
-        "artigos": 10,
-        "skus": 0
-      },
-      "sheets": [
-        {
-          "sheet": "Roteiros",
-          "type": "roteiros",
-          "status": "ok",
-          "mapped_pct": 100.0
-        },
-        {
-          "sheet": "Staffing",
-          "type": "staffing",
-          "status": "ok",
-          "mapped_pct": 100.0
-        },
-        {
-          "sheet": "Ordens",
-          "type": "ordens",
-          "status": "ok",
-          "mapped_pct": 100.0
-        }
-      ],
-      "warnings": [],
-      "timestamp": "2025-11-25T14:05:26.121870"
-    },
-    {
-      "filename": "Nikufra Stocks.xlsx",
-      "path": "/Users/martimnicolau/mvp geral/factory-optimizer/backend/app/data/Nikufra Stocks.xlsx",
-      "size_bytes": 25701,
-      "modified_at": "2025-11-25T14:04:22.764494",
-      "status": "processed",
-      "summary": {
-        "artigos": 0,
-        "skus": 8
-      },
-      "sheets": [
-        {
-          "sheet": "Stocks_mov",
-          "type": "stocks_mov",
-          "status": "ok",
-          "mapped_pct": 100.0
-        },
-        {
-          "sheet": "Stocks_snap",
-          "type": "stocks_snap",
-          "status": "ok",
-          "mapped_pct": 100.0
-        }
-      ],
-      "warnings": [],
-      "timestamp": "2025-11-25T14:05:26.656360"
-    },
-    {
-      "filename": "Nikufra DadosProducao.xlsx",
-      "path": "/Users/martimnicolau/mvp geral/factory-optimizer/backend/app/data/Nikufra DadosProducao.xlsx",
       "size_bytes": 25558,
-      "modified_at": "2025-11-25T21:25:05.907254",
+      "modified_at": "2025-11-25T21:32:58.159902",
       "status": "processed",
       "summary": {
         "artigos": 1,
@@ -179,7 +59,7 @@
       "warnings": [
         "Folha WIKI (Nikufra DadosProducao.xlsx) não foi reconhecida automaticamente. Utilize /api/etl/preview para mapear manualmente."
       ],
-      "timestamp": "2025-11-25T21:25:06.446907"
+      "timestamp": "2025-12-17T19:36:56.089967"
     },
     {
       "filename": "Nikufra Stocks.xlsx",
@@ -206,7 +86,7 @@
         }
       ],
       "warnings": [],
-      "timestamp": "2025-11-25T21:32:59.241711"
+      "timestamp": "2025-12-17T19:36:56.254371"
     },
     {
       "filename": "Nikufra DadosProducao.xlsx",
@@ -265,7 +145,34 @@
       "warnings": [
         "Folha WIKI (Nikufra DadosProducao.xlsx) não foi reconhecida automaticamente. Utilize /api/etl/preview para mapear manualmente."
       ],
-      "timestamp": "2025-11-25T21:32:59.429176"
+      "timestamp": "2025-12-17T19:38:42.966263"
+    },
+    {
+      "filename": "Nikufra Stocks.xlsx",
+      "path": "/Users/martimnicolau/mvp geral/factory-optimizer/backend/app/data/Nikufra Stocks.xlsx",
+      "size_bytes": 25701,
+      "modified_at": "2025-11-25T21:32:58.158071",
+      "status": "processed",
+      "summary": {
+        "artigos": 0,
+        "skus": 8
+      },
+      "sheets": [
+        {
+          "sheet": "Stocks_mov",
+          "type": "stocks_mov",
+          "status": "ok",
+          "mapped_pct": 100.0
+        },
+        {
+          "sheet": "Stocks_snap",
+          "type": "stocks_snap",
+          "status": "ok",
+          "mapped_pct": 100.0
+        }
+      ],
+      "warnings": [],
+      "timestamp": "2025-12-17T19:38:43.311666"
     },
     {
       "filename": "Nikufra DadosProducao.xlsx",
@@ -324,7 +231,7 @@
       "warnings": [
         "Folha WIKI (Nikufra DadosProducao.xlsx) não foi reconhecida automaticamente. Utilize /api/etl/preview para mapear manualmente."
       ],
-      "timestamp": "2025-11-25T21:42:32.972410"
+      "timestamp": "2025-12-17T19:40:09.537830"
     },
     {
       "filename": "Nikufra Stocks.xlsx",
@@ -351,7 +258,7 @@
         }
       ],
       "warnings": [],
-      "timestamp": "2025-11-25T21:42:33.019330"
+      "timestamp": "2025-12-17T19:40:09.625241"
     },
     {
       "filename": "Nikufra DadosProducao.xlsx",
@@ -410,7 +317,7 @@
       "warnings": [
         "Folha WIKI (Nikufra DadosProducao.xlsx) não foi reconhecida automaticamente. Utilize /api/etl/preview para mapear manualmente."
       ],
-      "timestamp": "2025-12-10T01:46:31.703675"
+      "timestamp": "2025-12-17T19:45:35.609858"
     },
     {
       "filename": "Nikufra Stocks.xlsx",
@@ -437,7 +344,179 @@
         }
       ],
       "warnings": [],
-      "timestamp": "2025-12-10T01:46:31.853366"
+      "timestamp": "2025-12-17T19:45:35.656653"
+    },
+    {
+      "filename": "Nikufra DadosProducao.xlsx",
+      "path": "/Users/martimnicolau/mvp geral/factory-optimizer/backend/app/data/Nikufra DadosProducao.xlsx",
+      "size_bytes": 25558,
+      "modified_at": "2025-11-25T21:32:58.159902",
+      "status": "processed",
+      "summary": {
+        "artigos": 1,
+        "skus": 0
+      },
+      "sheets": [
+        {
+          "sheet": "WIKI",
+          "type": "unknown",
+          "status": "unknown",
+          "mapped_pct": 0.0
+        },
+        {
+          "sheet": "GO Artigo 1",
+          "type": "roteiros",
+          "status": "ok",
+          "mapped_pct": 100.0
+        },
+        {
+          "sheet": "GO Artigo 2",
+          "type": "roteiros",
+          "status": "ok",
+          "mapped_pct": 100.0
+        },
+        {
+          "sheet": "GO Artigo 3",
+          "type": "roteiros",
+          "status": "ok",
+          "mapped_pct": 100.0
+        },
+        {
+          "sheet": "GO Artigo 4",
+          "type": "roteiros",
+          "status": "ok",
+          "mapped_pct": 100.0
+        },
+        {
+          "sheet": "GO Artigo 5",
+          "type": "roteiros",
+          "status": "ok",
+          "mapped_pct": 100.0
+        },
+        {
+          "sheet": "GO Artigo 6",
+          "type": "roteiros",
+          "status": "ok",
+          "mapped_pct": 100.0
+        }
+      ],
+      "warnings": [
+        "Folha WIKI (Nikufra DadosProducao.xlsx) não foi reconhecida automaticamente. Utilize /api/etl/preview para mapear manualmente."
+      ],
+      "timestamp": "2025-12-17T19:49:22.788524"
+    },
+    {
+      "filename": "Nikufra Stocks.xlsx",
+      "path": "/Users/martimnicolau/mvp geral/factory-optimizer/backend/app/data/Nikufra Stocks.xlsx",
+      "size_bytes": 25701,
+      "modified_at": "2025-11-25T21:32:58.158071",
+      "status": "processed",
+      "summary": {
+        "artigos": 0,
+        "skus": 8
+      },
+      "sheets": [
+        {
+          "sheet": "Stocks_mov",
+          "type": "stocks_mov",
+          "status": "ok",
+          "mapped_pct": 100.0
+        },
+        {
+          "sheet": "Stocks_snap",
+          "type": "stocks_snap",
+          "status": "ok",
+          "mapped_pct": 100.0
+        }
+      ],
+      "warnings": [],
+      "timestamp": "2025-12-17T19:49:22.843433"
+    },
+    {
+      "filename": "Nikufra DadosProducao.xlsx",
+      "path": "/Users/martimnicolau/mvp geral/factory-optimizer/backend/app/data/Nikufra DadosProducao.xlsx",
+      "size_bytes": 25558,
+      "modified_at": "2025-11-25T21:32:58.159902",
+      "status": "processed",
+      "summary": {
+        "artigos": 1,
+        "skus": 0
+      },
+      "sheets": [
+        {
+          "sheet": "WIKI",
+          "type": "unknown",
+          "status": "unknown",
+          "mapped_pct": 0.0
+        },
+        {
+          "sheet": "GO Artigo 1",
+          "type": "roteiros",
+          "status": "ok",
+          "mapped_pct": 100.0
+        },
+        {
+          "sheet": "GO Artigo 2",
+          "type": "roteiros",
+          "status": "ok",
+          "mapped_pct": 100.0
+        },
+        {
+          "sheet": "GO Artigo 3",
+          "type": "roteiros",
+          "status": "ok",
+          "mapped_pct": 100.0
+        },
+        {
+          "sheet": "GO Artigo 4",
+          "type": "roteiros",
+          "status": "ok",
+          "mapped_pct": 100.0
+        },
+        {
+          "sheet": "GO Artigo 5",
+          "type": "roteiros",
+          "status": "ok",
+          "mapped_pct": 100.0
+        },
+        {
+          "sheet": "GO Artigo 6",
+          "type": "roteiros",
+          "status": "ok",
+          "mapped_pct": 100.0
+        }
+      ],
+      "warnings": [
+        "Folha WIKI (Nikufra DadosProducao.xlsx) não foi reconhecida automaticamente. Utilize /api/etl/preview para mapear manualmente."
+      ],
+      "timestamp": "2025-12-18T19:24:48.733988"
+    },
+    {
+      "filename": "Nikufra Stocks.xlsx",
+      "path": "/Users/martimnicolau/mvp geral/factory-optimizer/backend/app/data/Nikufra Stocks.xlsx",
+      "size_bytes": 25701,
+      "modified_at": "2025-11-25T21:32:58.158071",
+      "status": "processed",
+      "summary": {
+        "artigos": 0,
+        "skus": 8
+      },
+      "sheets": [
+        {
+          "sheet": "Stocks_mov",
+          "type": "stocks_mov",
+          "status": "ok",
+          "mapped_pct": 100.0
+        },
+        {
+          "sheet": "Stocks_snap",
+          "type": "stocks_snap",
+          "status": "ok",
+          "mapped_pct": 100.0
+        }
+      ],
+      "warnings": [],
+      "timestamp": "2025-12-18T19:24:48.781101"
     }
   ],
   "sheets": [

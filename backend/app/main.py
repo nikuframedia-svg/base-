@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from dotenv import load_dotenv
 
-from app.api import bottlenecks, chat, etl, insight, insights, inventory, planning, planning_chat, planning_v2, suggestions, technical_queries, whatif
+from app.api import bottlenecks, chat, compat, etl, insight, insights, inventory, planning, planning_chat, planning_v2, suggestions, technical_queries, whatif
 from app.etl.loader import get_loader, run_startup_etl
 
 
@@ -13,7 +13,7 @@ app = FastAPI(title="ProdPlan 4.0 API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000", "http://localhost:5174"],
+    allow_origin_regex=r"http://(localhost|127\.0\.0\.1):\d+",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -31,6 +31,7 @@ app.include_router(suggestions.router, prefix="/api/suggestions", tags=["Suggest
 app.include_router(insight.router, prefix="/api/insight", tags=["Insight"])
 app.include_router(insights.router, prefix="/api/insights", tags=["Insights"])
 app.include_router(etl.router, prefix="/api", tags=["ETL"])
+app.include_router(compat.router, tags=["Compatibility"])
 
 
 @app.on_event("startup")
@@ -41,6 +42,17 @@ async def startup_event():
             get_loader().status.setdefault("startup_summary", summary)
     except Exception as exc:  # pylint: disable=broad-except
         get_loader().status.setdefault("startup_error", str(exc))
+
+
+@app.get("/")
+async def root():
+    """Root endpoint to avoid 404 errors."""
+    return {
+        "message": "ProdPlan 4.0 API",
+        "version": "1.0.0",
+        "docs": "/docs",
+        "health": "/api/health"
+    }
 
 
 @app.get("/api/health")
