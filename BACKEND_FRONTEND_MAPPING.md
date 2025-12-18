@@ -505,3 +505,4 @@ const timeoutId = setTimeout(() => controller.abort(), 60000)
 *Versão: 1.0*
 
 
+
