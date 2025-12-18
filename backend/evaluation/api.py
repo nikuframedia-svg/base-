@@ -120,3 +120,4 @@ async def calculate_snr_analysis(request: SNRRequest):
         logger.error(f"Error calculating SNR: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+

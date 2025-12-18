@@ -948,3 +948,4 @@
 **Funcionalidades expostas na API:** ~60%  
 **Funcionalidades implementadas mas não expostas:** ~40%
 
+

@@ -142,3 +142,4 @@ async def collect_data(
         logger.error(f"Error collecting data: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+

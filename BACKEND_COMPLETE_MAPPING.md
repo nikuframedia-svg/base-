@@ -416,3 +416,4 @@ Os únicos ficheiros não tracked são:
 2. Logs de treino (podem ser regenerados)
 3. Ficheiros de documentação temporária (no .gitignore, mas podem ser adicionados se necessário)
 
+

@@ -139,3 +139,4 @@ async def get_learning_curves(
         logger.error(f"Error getting learning curves: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
