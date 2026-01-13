@@ -1845,3 +1845,701 @@ class SimpleAutoencoder(nn.Module):
 **DOCUMENTO 100% COMPLETO E VERIFICADO**
 
 *Atualizado em 2025-01-18*
+
+---
+
+# 🚨 APÊNDICE D: FUNCIONALIDADES PARCIALMENTE IMPLEMENTADAS OU NÃO IMPLEMENTADAS
+
+Este apêndice documenta TODAS as funcionalidades que estão:
+- ⚠️ **Parcialmente implementadas** (stubs, TODOs, placeholders)
+- ❌ **Não implementadas** (apenas interfaces definidas, NotImplementedError)
+- 🔬 **Planeadas para R&D** (TODO[R&D])
+
+---
+
+## D.1 SCHEDULING - FUNCIONALIDADES INCOMPLETAS
+
+### D.1.1 DRL Policy (STUB COMPLETO)
+**Ficheiro:** `backend/scheduling/drl_policy_stub.py`
+
+| Classe | Status | Descrição |
+|--------|--------|-----------|
+| `DRLPolicyStub` | ⚠️ STUB | Fallback para heurística SPT |
+| `SchedulingEnvStub` | ⚠️ STUB | Gymnasium environment não implementado |
+
+**Código atual:**
+```python
+class DRLPolicyStub:
+    """Stub para política DRL de scheduling."""
+    def select_action(self, state: DRLState) -> DRLAction:
+        # TODO[R&D]: Usar modelo treinado
+        return self._fallback_heuristic(state)  # Retorna SPT
+```
+
+**O que falta implementar:**
+- [ ] Carregamento de modelo treinado
+- [ ] Experience replay
+- [ ] Network update loop
+- [ ] Gymnasium environment completo
+- [ ] Observation/Action spaces
+
+---
+
+### D.1.2 Integração com Base de Dados
+**Ficheiro:** `backend/scheduling/api.py` (linha 240)
+
+```python
+# TODO: Integrar com base de dados real
+```
+
+**Status:** ⚠️ Usa dados em memória, não persiste em DB
+
+---
+
+### D.1.3 Setup Time por Família
+**Ficheiro:** `backend/scheduling/heuristics.py` (linha 492)
+
+```python
+setup_time = 0.0  # TODO: calcular setup baseado em família
+```
+
+**Status:** ⚠️ Setup time fixo em 0, não calcula por família de produtos
+
+---
+
+## D.2 OPTIMIZATION - FUNCIONALIDADES INCOMPLETAS
+
+### D.2.1 Reinforcement Learning Training
+**Ficheiro:** `backend/optimization/math_optimization.py`
+
+| Função | Status | Linha |
+|--------|--------|-------|
+| `ProcessOptimizer.train_rl_agent()` | ⚠️ PLACEHOLDER | 1009 |
+| `GoldenRunManager.train_rl_agent()` | ⚠️ PLACEHOLDER | 1140 |
+
+**Código atual:**
+```python
+def train_rl_agent(self, training_data, epochs=100):
+    # TODO: Implement full RL training (e.g., using stable-baselines3)
+    logger.info(f"RL agent training placeholder: {len(training_data)} samples")
+    self.rl_agent = "trained"  # Placeholder - não treina realmente
+```
+
+**O que falta:**
+- [ ] Integração com stable-baselines3
+- [ ] Algoritmo DQN completo
+- [ ] Experience replay buffer
+- [ ] Target network updates
+
+---
+
+### D.2.2 DQN e PPO (Learning Scheduler)
+**Ficheiro:** `backend/optimization/learning_scheduler.py`
+
+| Classe | Status | Linha |
+|--------|--------|-------|
+| `DQNPolicy` | ⚠️ TODO | 866 |
+| `PPOPolicy` | ⚠️ TODO | 900 |
+
+**Código:**
+```python
+class DQNPolicy(SchedulingPolicy):
+    """
+    TODO[R&D]: Implement full DQN with:
+    - Experience replay buffer
+    - Target network updates
+    - Double DQN
+    - Prioritized experience replay
+    """
+    def update(self, experience):
+        # TODO: Implement experience replay and network update
+        pass
+```
+
+---
+
+### D.2.3 Solvers Comerciais
+**Ficheiro:** `backend/optimization/solver_interface.py`
+
+| Solver | Status | Linha |
+|--------|--------|-------|
+| Gurobi | ❌ NÃO IMPLEMENTADO | 625 |
+| HiGHS | ❌ NÃO IMPLEMENTADO | 630 |
+
+**Código:**
+```python
+elif solver_type == SolverType.GUROBI:
+    # TODO: Implement Gurobi interface
+    logger.warning("Gurobi not implemented, falling back to heuristic")
+    return _create_heuristic_fallback()
+```
+
+**Solvers disponíveis:**
+- ✅ OR-Tools CBC
+- ✅ OR-Tools SCIP
+- ❌ Gurobi (não implementado)
+- ❌ HiGHS (não implementado)
+- ❌ CPLEX (não implementado)
+
+---
+
+### D.2.4 PuLP Backend
+**Ficheiro:** `backend/optimization/scheduling_models.py` (linha 459-460)
+
+```python
+# TODO: Implement PuLP version for environments without OR-Tools
+raise NotImplementedError("PuLP backend not yet implemented")
+```
+
+---
+
+## D.3 PLANNING - FUNCIONALIDADES INCOMPLETAS
+
+### D.3.1 Chained Scheduler - MILP
+**Ficheiro:** `backend/planning/chained_scheduler.py`
+
+| Funcionalidade | Status | Linha |
+|----------------|--------|-------|
+| CP-SAT model | ⚠️ TODO | 452 |
+| MILP solver (Gurobi) | ❌ NÃO IMPL | 561-564 |
+
+**Código:**
+```python
+def _solve_milp(self) -> List[CellAssignment]:
+    """
+    TODO[R&D]: Implement using PuLP or Gurobi for MILP.
+    """
+    logger.info("MILP solver requested, using heuristic (MILP not yet implemented)")
+    return self._solve_heuristic()  # Fallback
+```
+
+---
+
+### D.3.2 Operator Allocation
+**Ficheiro:** `backend/planning/planning_engine.py` (linha 232)
+
+```python
+# TODO: Integrate operator allocation
+```
+
+**Status:** ⚠️ Operadores não são alocados automaticamente
+
+---
+
+### D.3.3 Tardiness Calculation
+**Ficheiro:** `backend/planning/planning_engine.py` (linha 334)
+
+```python
+pass  # TODO: Implement tardiness calculation
+```
+
+---
+
+## D.4 ML/FORECASTING - FUNCIONALIDADES INCOMPLETAS
+
+### D.4.1 Modelos de Forecasting NÃO Implementados
+**Ficheiro:** `backend/smart_inventory/demand_forecasting.py`
+
+| Modelo | Status | Descrição |
+|--------|--------|-----------|
+| N-BEATS | ❌ TODO[R&D] | Neural Basis Expansion |
+| NST | ❌ TODO[R&D] | Non-Stationary Transformer |
+| D-LINEAR | ❌ TODO[R&D] | Decomposition Linear |
+| ENSEMBLE | ❌ TODO[R&D] | Combinação de modelos |
+
+**Código:**
+```python
+class ForecastModel(str, Enum):
+    ARIMA = "ARIMA"          # ✅ Implementado
+    PROPHET = "PROPHET"      # ✅ Implementado  
+    NBEATS = "N-BEATS"       # TODO[R&D] ❌
+    NST = "NST"              # TODO[R&D] ❌
+    DLINEAR = "D-LINEAR"     # TODO[R&D] ❌
+    ENSEMBLE = "ENSEMBLE"    # TODO[R&D] ❌
+```
+
+---
+
+### D.4.2 TransformerForecaster (STUB)
+**Ficheiro:** `backend/ml/forecasting.py`
+
+```python
+class TransformerForecaster(BaseForecaster):
+    """
+    Transformer-based forecaster (stub for future implementation).
+    
+    TODO[R&D]: Implement transformer models:
+    - Temporal Fusion Transformer (TFT)
+    - Pyraformer for long-range dependencies
+    - Non-stationary transformers
+    """
+    def fit(self, data):
+        # TODO[R&D]: Implement transformer training
+        self._model = None  # Stub
+```
+
+**Status:** ⚠️ STUB - apenas interface definida
+
+---
+
+### D.4.3 ARIMA Seasonal Support
+**Ficheiro:** `backend/ml/forecasting.py` (linha 261)
+
+```python
+seasonal=None,  # TODO: Add seasonal support
+```
+
+---
+
+### D.4.4 Prediction Intervals
+**Ficheiro:** `backend/ml/forecasting.py` (linha 287)
+
+```python
+# TODO: Implement proper intervals
+```
+
+---
+
+### D.4.5 Lead Time Prediction ML
+**Ficheiro:** `backend/ml/forecasting.py` (linha 594)
+
+```python
+# TODO: Implement ML-based lead time prediction
+```
+
+---
+
+## D.5 R&D/CAUSAL - FUNCIONALIDADES INCOMPLETAS
+
+### D.5.1 CEVAE Estimator (STUB COMPLETO)
+**Ficheiro:** `backend/rd/causal_deep_experiments.py`
+
+**Status:** ⚠️ STUB - Todas as funções principais levantam NotImplementedError
+
+```python
+class CevaeEstimator:
+    """
+    CEVAE - R&D STUB.
+    WARNING: This class raises NotImplementedError for core methods.
+    """
+    def fit(self, X, T, Y):
+        raise NotImplementedError(
+            "Full CEVAE training not implemented. "
+            "This is a research stub for R&D documentation."
+        )
+    
+    def estimate_effects(self):
+        raise NotImplementedError(
+            "CEVAE effect estimation not implemented - R&D stub"
+        )
+```
+
+---
+
+### D.5.2 TARNet Estimator (STUB)
+**Ficheiro:** `backend/rd/causal_deep_experiments.py`
+
+```python
+class TarnetEstimator:
+    """TARNet - R&D STUB."""
+    def fit(self, X, T, Y):
+        raise NotImplementedError("TARNet.fit() not implemented - R&D stub")
+    
+    def estimate_effects(self):
+        raise NotImplementedError("TARNet.estimate_effects() not implemented - R&D stub")
+```
+
+---
+
+### D.5.3 DragonNet Estimator (STUB)
+**Ficheiro:** `backend/rd/causal_deep_experiments.py`
+
+```python
+class DragonnetEstimator:
+    """DragonNet - R&D STUB."""
+    def fit(self, X, T, Y):
+        raise NotImplementedError("DragonNet.fit() not implemented - R&D stub")
+    
+    def estimate_effects(self):
+        raise NotImplementedError("DragonNet.estimate_effects() not implemented - R&D stub")
+```
+
+---
+
+### D.5.4 Causal Graph Algorithms
+**Ficheiro:** `backend/causal/causal_graph_builder.py` (linha 555)
+
+```python
+def learn_structure(self, data):
+    """
+    TODO[R&D]: Implementar com:
+    - PC Algorithm (causal-learn)
+    - FCI Algorithm
+    - NOTEARS (gradient-based)
+    """
+```
+
+---
+
+## D.6 DIGITAL TWIN - FUNCIONALIDADES INCOMPLETAS
+
+### D.6.1 RUL Models (PyTorch)
+**Ficheiro:** `backend/digital_twin/rul_estimator.py`
+
+| Funcionalidade | Status | Linha |
+|----------------|--------|-------|
+| Load trained model | ⚠️ TODO | 542 |
+| Training with pycox | ⚠️ TODO | 597 |
+| Prediction with pycox | ⚠️ TODO | 694 |
+
+**Código:**
+```python
+def _load_model(self):
+    # TODO[R&D]: Implementar carregamento real do modelo
+    pass
+
+def train(self, data):
+    # TODO[R&D]: Implementar treino com pycox
+    pass
+```
+
+---
+
+### D.6.2 XAI-DT Geometry (GP/Neural Network)
+**Ficheiro:** `backend/digital_twin/xai_dt_geometry.py` (linha 771)
+
+```python
+# TODO[R&D]: Use GP or neural network for uncertainty
+```
+
+---
+
+### D.6.3 Predictive Care - Trend Calculation
+**Ficheiro:** `backend/digital_twin/predictive_care.py` (linha 542)
+
+```python
+# TODO: Implement actual trend calculation from historical data
+```
+
+---
+
+## D.7 MAINTENANCE - FUNCIONALIDADES INCOMPLETAS
+
+### D.7.1 CMMS Integration
+**Ficheiro:** `backend/maintenance/predictivecare_bridge.py`
+
+| Funcionalidade | Status | Linha |
+|----------------|--------|-------|
+| CMMS sync | ⚠️ STUB | 255-258 |
+| CMMS work order | ⚠️ STUB | 468-469 |
+
+**Código:**
+```python
+def sync_with_cmms(self):
+    # TODO: Implement actual CMMS integration
+    # This is a stub for future implementation
+    logger.info("CMMS sync: stub implementation")
+```
+
+---
+
+### D.7.2 Maintenance Reporting
+**Ficheiro:** `backend/reporting/api.py` (linha 122)
+
+```python
+return {
+    "message": "Maintenance reporting not yet implemented",
+    "data": []
+}
+```
+
+---
+
+## D.8 SMART INVENTORY - FUNCIONALIDADES INCOMPLETAS
+
+### D.8.1 External Signals Integration
+**Ficheiro:** `backend/smart_inventory/external_signals.py`
+
+| Signal Type | Status | Linha |
+|-------------|--------|-------|
+| WEATHER | ⚠️ TODO | 40 |
+| SOCIAL_MEDIA | ⚠️ TODO | 41 |
+| Commodity Prices API | ⚠️ TODO | 121 |
+| News API | ⚠️ TODO | 160 |
+| Economic Indicators API | ⚠️ TODO | 226 |
+
+**Código:**
+```python
+WEATHER = "WEATHER"  # TODO
+SOCIAL_MEDIA = "SOCIAL_MEDIA"  # TODO
+
+def fetch_commodity_prices(self):
+    # TODO: Integração com API real (ex: Alpha Vantage, Quandl)
+    return self._mock_data()
+```
+
+---
+
+### D.8.2 Multi-Warehouse MILP
+**Ficheiro:** `backend/smart_inventory/multi_warehouse_optimizer.py` (linha 154)
+
+```python
+"""
+TODO[R&D]: Implementar MILP completo com OR-Tools.
+"""
+```
+
+---
+
+### D.8.3 Suggestion Engine - External Signals
+**Ficheiro:** `backend/smart_inventory/suggestion_engine.py` (linha 255)
+
+```python
+# TODO: Analisar sinais externos e gerar sugestões
+```
+
+---
+
+## D.9 DUPLIOS/PDM - FUNCIONALIDADES INCOMPLETAS
+
+### D.9.1 PDM Integration with ProdPlan
+**Ficheiro:** `backend/duplios/pdm_core.py`
+
+| Funcionalidade | Status | Linha |
+|----------------|--------|-------|
+| Query open orders | ⚠️ TODO | 812 |
+| Flag old revision stock | ⚠️ TODO | 818 |
+| Query production/inventory | ⚠️ TODO | 1069 |
+
+---
+
+## D.10 WORKFORCE ANALYTICS - FUNCIONALIDADES INCOMPLETAS
+
+### D.10.1 LSTM/Transformer Forecasting
+**Ficheiro:** `backend/workforce_analytics/workforce_forecasting.py`
+
+```python
+# TODO[R&D]: ADVANCED ML FORECASTING
+
+class LSTMWorkforceForecaster:
+    """
+    TODO[R&D]: LSTM-based forecasting for complex patterns.
+    """
+    pass  # Not implemented
+
+class TransformerWorkforceForecaster:
+    """
+    TODO[R&D]: Transformer-based forecasting.
+    """
+    pass  # Not implemented
+```
+
+---
+
+## D.11 RESEARCH MODULE - FUNCIONALIDADES INCOMPLETAS
+
+### D.11.1 Routing Engine ML
+**Ficheiro:** `backend/research/routing_engine.py`
+
+| Funcionalidade | Status | Linha |
+|----------------|--------|-------|
+| Load trained model | ⚠️ TODO | 248 |
+| Feature extraction | ⚠️ TODO | 251 |
+| Full scheduler integration | ⚠️ TODO | 415 |
+
+---
+
+### D.11.2 Setup Engine ML
+**Ficheiro:** `backend/research/setup_engine.py`
+
+| Funcionalidade | Status | Linha |
+|----------------|--------|-------|
+| Extract setup matrix | ⚠️ TODO | 149 |
+| Actual prediction | ⚠️ TODO | 290 |
+| Training | ⚠️ TODO | 312 |
+| ML correction | ⚠️ TODO | 366 |
+| Hybrid training | ⚠️ TODO | 374 |
+
+---
+
+### D.11.3 Learning Scheduler - Context-Aware
+**Ficheiro:** `backend/research/learning_scheduler.py` (linha 346)
+
+```python
+# TODO[R&D]: Implement context-aware selection
+```
+
+---
+
+## D.12 LLM INTEGRATION - STATUS
+
+### D.12.1 LLM Local (Ollama)
+**Ficheiro:** `backend/app/llm/local.py`
+
+**Status:** ✅ IMPLEMENTADO - Mas requer Ollama a correr externamente
+
+```python
+class LocalLLM:
+    """Wrapper simples sobre um servidor LLM local (ex.: Ollama)."""
+    # Implementado e funcional quando Ollama está disponível
+```
+
+**Modelos suportados:**
+- llama3:8b (default)
+- Qualquer modelo compatível com Ollama
+
+---
+
+## D.13 INTEGRATION - FUNCIONALIDADES INCOMPLETAS
+
+### D.13.1 ERP/MES Connector
+**Ficheiro:** `backend/integration/erp_mes_connector.py` (linha 76)
+
+```python
+# TODO[ERP_MES_CONNECTOR]: ligar estes métodos a conectores reais (SQL Server / REST / SOAP).
+```
+
+**Status:** ⚠️ Interfaces definidas, conectores não implementados
+
+---
+
+## D.14 EVALUATION - FUNCIONALIDADES INCOMPLETAS
+
+### D.14.1 Statistical Tests
+**Ficheiro:** `backend/evaluation/kpi_engine.py` (linha 210)
+
+```python
+# TODO[R&D]: Implement proper statistical tests
+```
+
+---
+
+## D.15 CORE - FUNCIONALIDADES INCOMPLETAS
+
+### D.15.1 Setup Engine - 2-opt
+**Ficheiro:** `backend/core/setup_engine.py` (linhas 460-461)
+
+```python
+"""
+TODO[R&D]: Implement 2-opt local search for improvement
+TODO[R&D]: Compare with Christofides algorithm for larger instances
+"""
+```
+
+---
+
+## D.16 API COMPATIBILITY - STUBS
+
+### D.16.1 Compat Endpoints (Stubs)
+**Ficheiro:** `backend/app/api/compat.py`
+
+| Endpoint | Status | Descrição |
+|----------|--------|-----------|
+| `/actions/pending` | ⚠️ STUB | Linha 201 |
+| `/kpis/by-product` | ⚠️ STUB | Linha 211 |
+| `/delivery/estimate` | ⚠️ STUB | Linha 230 |
+| `/projects/priority-plan` | ⚠️ STUB | Linha 293 |
+| `/projects/recompute` | ⚠️ STUB | Linha 303 |
+
+---
+
+# 📊 RESUMO DE STATUS DE IMPLEMENTAÇÃO
+
+## Por Categoria
+
+| Categoria | ✅ Completo | ⚠️ Parcial | ❌ Não Impl | 🔬 R&D |
+|-----------|------------|-----------|------------|--------|
+| Scheduling | 5 | 3 | 1 | 2 |
+| Optimization | 8 | 4 | 3 | 5 |
+| Planning | 4 | 3 | 1 | 2 |
+| ML/Forecasting | 4 | 2 | 4 | 6 |
+| R&D/Causal | 2 | 1 | 3 | 4 |
+| Digital Twin | 6 | 4 | 0 | 3 |
+| Maintenance | 3 | 2 | 0 | 1 |
+| Smart Inventory | 6 | 3 | 2 | 4 |
+| Duplios/PDM | 8 | 3 | 0 | 0 |
+| Workforce | 3 | 1 | 2 | 2 |
+| Research | 2 | 5 | 0 | 8 |
+| LLM | 3 | 0 | 0 | 0 |
+| Integration | 0 | 3 | 0 | 1 |
+| **TOTAL** | **54** | **34** | **16** | **38** |
+
+---
+
+## Lista Completa de TODOs no Código
+
+### TODOs Críticos (Funcionalidade Core)
+
+1. **Scheduling DRL** - Modelo treinado não implementado
+2. **MILP Gurobi/HiGHS** - Apenas OR-Tools disponível
+3. **Chained Planning MILP** - Usa heurística como fallback
+4. **CMMS Integration** - Stub para manutenção
+5. **ERP/MES Connectors** - Apenas interfaces definidas
+
+### TODOs de R&D (Pesquisa)
+
+1. **N-BEATS, NST, D-LINEAR** - Modelos de forecasting avançados
+2. **CEVAE, TARNet, DragonNet** - Causal inference deep learning
+3. **Transformer Forecaster** - Temporal Fusion Transformer
+4. **LSTM Workforce** - Forecasting de workforce com LSTM
+5. **GP/Neural Network XAI** - Incerteza em XAI-DT
+
+### TODOs de Integração
+
+1. **Alpha Vantage API** - Preços de commodities
+2. **NewsAPI** - Sinais de notícias
+3. **FRED API** - Indicadores económicos
+4. **SQL Server/REST/SOAP** - Conectores ERP/MES
+
+---
+
+## Ficheiros com Mais TODOs
+
+| Ficheiro | TODOs | Criticidade |
+|----------|-------|-------------|
+| `rd/causal_deep_experiments.py` | 15 | 🔬 R&D |
+| `optimization/solver_interface.py` | 12 | ⚠️ Média |
+| `smart_inventory/demand_forecasting.py` | 10 | 🔬 R&D |
+| `digital_twin/rul_estimator.py` | 8 | ⚠️ Média |
+| `scheduling/drl_policy_stub.py` | 7 | ❌ Alta |
+| `ml/forecasting.py` | 7 | 🔬 R&D |
+| `optimization/learning_scheduler.py` | 6 | ⚠️ Média |
+| `planning/chained_scheduler.py` | 4 | ⚠️ Média |
+| `maintenance/predictivecare_bridge.py` | 4 | ⚠️ Média |
+
+---
+
+# ✅ O QUE ESTÁ 100% FUNCIONAL
+
+| Módulo | Funcionalidade | Status |
+|--------|----------------|--------|
+| Scheduling | MILP OR-Tools | ✅ |
+| Scheduling | CP-SAT OR-Tools | ✅ |
+| Scheduling | Heurísticas (6 tipos) | ✅ |
+| Optimization | Bandits (UCB, Thompson) | ✅ |
+| Optimization | Bayesian Optimization | ✅ |
+| Optimization | Genetic Algorithm | ✅ |
+| Planning | Capacity Planner | ✅ |
+| Planning | Chained Scheduler (heurística) | ✅ |
+| Digital Twin | SHI-DT (CVAE) | ✅ |
+| Digital Twin | RUL Estimation (básico) | ✅ |
+| Digital Twin | XAI-DT Analysis | ✅ |
+| Duplios | DPP/PDM CRUD | ✅ |
+| Duplios | LCA Engine | ✅ |
+| Duplios | Compliance Radar | ✅ |
+| Smart Inventory | MRP Complete | ✅ |
+| Smart Inventory | ROP Engine | ✅ |
+| Smart Inventory | ARIMA/Prophet Forecast | ✅ |
+| Quality | Prevention Guard | ✅ |
+| Causal | OLS/DML Estimators | ✅ |
+| LLM | Ollama Integration | ✅ |
+| ETL | Excel Import | ✅ |
+| API | 35+ Endpoints | ✅ |
+
+---
+
+**DOCUMENTO COMPLETO COM TODAS AS FUNCIONALIDADES DOCUMENTADAS**
+
+*Inclui: Implementadas, Parciais, Não Implementadas, e R&D*
+
+*Atualizado em 2025-01-18*
