@@ -9,6 +9,275 @@
 
 ---
 
+# 📖 INTRODUÇÃO PARA LEITORES EXTERNOS
+
+Este documento descreve todas as funcionalidades do ProdPlan 4.0, um sistema de **Advanced Planning & Scheduling (APS)** inteligente para indústria. Esta secção fornece o contexto necessário para compreender o sistema, mesmo sem experiência prévia em planeamento industrial.
+
+---
+
+## O QUE É UM APS (Advanced Planning & Scheduling)?
+
+### Definição
+Um **APS** é um sistema de software que planeia e agenda a produção industrial de forma otimizada, considerando múltiplas restrições em simultâneo.
+
+### O Problema que Resolve
+Imagine uma fábrica com:
+- **50 máquinas** diferentes
+- **1000 ordens de produção** por mês
+- **500 produtos** diferentes
+- **100 operadores** com competências variadas
+- **Prazos de entrega** apertados
+
+**Pergunta:** Em que ordem fazer cada operação, em que máquina, e com que operador, para entregar tudo a tempo com o mínimo custo?
+
+Este é um problema **NP-hard** (computacionalmente muito difícil). Um APS usa algoritmos matemáticos avançados para encontrar soluções boas (não necessariamente perfeitas) em tempo útil.
+
+### Diferença entre ERP e APS
+
+| Característica | ERP | APS |
+|----------------|-----|-----|
+| **Capacidade** | Infinita (assume que há sempre capacidade) | Finita (respeita limites reais) |
+| **Horizonte** | Semanas/meses (MRP) | Dias/horas (scheduling detalhado) |
+| **Restrições** | Poucas (stock, datas) | Muitas (máquinas, operadores, setups, turnos) |
+| **Otimização** | Regras simples | Algoritmos matemáticos |
+| **Resultado** | "O quê" e "quando" | "O quê", "quando", "onde", "como", "com quem" |
+
+### Fluxo Típico de um APS
+
+```
+Dados de Entrada                    Processamento                    Resultado
+─────────────────                   ─────────────                    ─────────
+Ordens de Produção  ───┐
+Roteiros (operações)───┤
+Máquinas e turnos   ───┤─────>  [MOTOR APS]  ─────>  Plano de Produção
+Operadores          ───┤            │                    │
+Tempos de setup     ───┤            │                    ├── Gantt por máquina
+Stock atual         ───┘            │                    ├── Datas de entrega
+                                    │                    ├── Alocação operadores
+                              Algoritmos:                └── KPIs (OTD, utilização)
+                              - MILP
+                              - CP-SAT
+                              - Heurísticas
+```
+
+---
+
+## O QUE É INDUSTRY 4.0 E 5.0?
+
+### Industry 4.0 (Quarta Revolução Industrial)
+- **Conceito:** Digitalização e automação da indústria
+- **Tecnologias:** IoT, Cloud, Big Data, AI/ML
+- **Objetivo:** Fábricas inteligentes e conectadas
+- **Palavra-chave:** AUTOMAÇÃO
+
+### Industry 5.0 (Quinta Revolução Industrial)
+- **Conceito:** Humano no centro da decisão
+- **Princípios:** Sustentabilidade, Resiliência, Human-centric
+- **Tecnologias:** Mesmas do 4.0 + explicabilidade (XAI)
+- **Palavra-chave:** COLABORAÇÃO Humano-Máquina
+
+### ProdPlan 4.0 e Industry 5.0
+
+O ProdPlan 4.0 segue os princípios de Industry 5.0:
+
+| Princípio | Como é Implementado |
+|-----------|---------------------|
+| **Human-centric** | Sistema PROPÕE ações, humano APROVA ou REJEITA |
+| **Sustentabilidade** | Módulo Duplios calcula pegada de carbono (DPP) |
+| **Resiliência** | Módulo ZDM simula falhas e recuperação |
+| **Explicabilidade** | LLM explica decisões em linguagem natural |
+
+---
+
+## ARQUITECTURA GERAL DO SISTEMA
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           PRODPLAN 4.0 ARCHITECTURE                          │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐        │
+│  │   FRONTEND  │  │    API      │  │  SCHEDULER  │  │     ML      │        │
+│  │  (React)    │◄─┤  (FastAPI)  │◄─┤   ENGINE    │◄─┤   ENGINE    │        │
+│  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘        │
+│        ▲                │                │                │                │
+│        │                ▼                ▼                ▼                │
+│        │         ┌─────────────────────────────────────────────┐           │
+│        │         │              DATA LAYER                      │           │
+│        │         │  ┌─────────┐ ┌─────────┐ ┌─────────────────┐ │           │
+│        │         │  │  ETL    │ │ CACHE   │ │   PERSISTENCE   │ │           │
+│        │         │  │ (Excel) │ │(SQLite) │ │  (JSON/Files)   │ │           │
+│        │         │  └─────────┘ └─────────┘ └─────────────────┘ │           │
+│        │         └─────────────────────────────────────────────┘           │
+│        │                                                                   │
+│        │         ┌─────────────────────────────────────────────┐           │
+│        │         │              DOMAIN MODULES                  │           │
+│        │         │                                             │           │
+│        │         │  ┌──────────┐ ┌──────────┐ ┌──────────────┐ │           │
+│        │         │  │SCHEDULING│ │INVENTORY │ │ DIGITAL TWIN │ │           │
+│        │         │  │MILP/CPSAT│ │ MRP/ROP  │ │  SHI/XAI/RUL │ │           │
+│        │         │  └──────────┘ └──────────┘ └──────────────┘ │           │
+│        │         │                                             │           │
+│        │         │  ┌──────────┐ ┌──────────┐ ┌──────────────┐ │           │
+│        │         │  │ DUPLIOS  │ │  CAUSAL  │ │   QUALITY    │ │           │
+│        │         │  │ DPP/PDM  │ │ ATE/DML  │ │  Guard/OEE   │ │           │
+│        │         │  └──────────┘ └──────────┘ └──────────────┘ │           │
+│        │         └─────────────────────────────────────────────┘           │
+│        │                                                                   │
+│        │         ┌─────────────────────────────────────────────┐           │
+│        │         │              AI/LLM LAYER                    │           │
+│        └─────────┤  ┌─────────┐ ┌─────────┐ ┌─────────────────┐ │           │
+│                  │  │ OLLAMA  │ │ EXPLAIN │ │  COMMAND PARSE  │ │           │
+│                  │  │ (Local) │ │ ENGINE  │ │  (NL → Actions) │ │           │
+│                  │  └─────────┘ └─────────┘ └─────────────────┘ │           │
+│                  └─────────────────────────────────────────────┘           │
+│                                                                             │
+│  ✅ 100% ON-PREMISES  |  ✅ SEM CLOUD  |  ✅ DADOS PRIVADOS                 │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## GLOSSÁRIO DE TERMOS TÉCNICOS
+
+### Acrónimos de Scheduling
+
+| Acrónimo | Significado | Explicação |
+|----------|-------------|------------|
+| **APS** | Advanced Planning & Scheduling | Sistema de planeamento e escalonamento avançado |
+| **MILP** | Mixed-Integer Linear Programming | Programação linear com variáveis inteiras e contínuas |
+| **CP-SAT** | Constraint Programming with SAT | Programação por restrições com satisfatibilidade |
+| **FIFO** | First In First Out | Primeiro a entrar, primeiro a sair |
+| **SPT** | Shortest Processing Time | Tempo de processamento mais curto primeiro |
+| **EDD** | Earliest Due Date | Data de entrega mais próxima primeiro |
+| **CR** | Critical Ratio | Rácio crítico (tempo até entrega / tempo restante) |
+| **WSPT** | Weighted SPT | SPT ponderado por prioridade |
+| **Makespan** | - | Tempo total do plano (início primeira op. até fim última) |
+| **Tardiness** | - | Atraso = max(0, fim - data_entrega) |
+| **OTD** | On-Time Delivery | Taxa de entregas a tempo |
+
+### Acrónimos de Inventário
+
+| Acrónimo | Significado | Explicação |
+|----------|-------------|------------|
+| **MRP** | Material Requirements Planning | Planeamento de necessidades de materiais |
+| **ROP** | Reorder Point | Ponto de encomenda (quando encomendar) |
+| **EOQ** | Economic Order Quantity | Quantidade económica de encomenda |
+| **SS** | Safety Stock | Stock de segurança |
+| **BOM** | Bill of Materials | Lista de materiais (estrutura do produto) |
+| **SKU** | Stock Keeping Unit | Unidade de gestão de stock (código do produto) |
+| **LT** | Lead Time | Tempo de aprovisionamento |
+| **CV** | Coefficient of Variation | Coeficiente de variação (σ/μ) |
+
+### Acrónimos de Qualidade e OEE
+
+| Acrónimo | Significado | Explicação |
+|----------|-------------|------------|
+| **OEE** | Overall Equipment Effectiveness | Eficiência global do equipamento |
+| **SNR** | Signal-to-Noise Ratio | Rácio sinal-ruído (qualidade de dados) |
+| **SPC** | Statistical Process Control | Controlo estatístico de processos |
+| **Poka-Yoke** | - | Mecanismo anti-erro (do japonês) |
+
+### Acrónimos de Digital Twin
+
+| Acrónimo | Significado | Explicação |
+|----------|-------------|------------|
+| **DT** | Digital Twin | Gémeo digital (réplica virtual) |
+| **SHI-DT** | Smart Health Index Digital Twin | Índice de saúde de máquinas |
+| **XAI-DT** | Explainable AI Digital Twin | Gémeo digital com IA explicável |
+| **RUL** | Remaining Useful Life | Vida útil restante (manutenção preditiva) |
+| **IoT** | Internet of Things | Internet das Coisas (sensores) |
+| **CVAE** | Conditional Variational Autoencoder | Rede neural para deteção de anomalias |
+
+### Acrónimos de Sustentabilidade (Duplios)
+
+| Acrónimo | Significado | Explicação |
+|----------|-------------|------------|
+| **DPP** | Digital Product Passport | Passaporte digital do produto |
+| **PDM** | Product Data Management | Gestão de dados do produto |
+| **LCA** | Life Cycle Assessment | Avaliação do ciclo de vida |
+| **ESPR** | Ecodesign for Sustainable Products Regulation | Regulamento europeu de ecodesign |
+| **CBAM** | Carbon Border Adjustment Mechanism | Mecanismo de ajuste carbono fronteiras |
+| **CSRD** | Corporate Sustainability Reporting Directive | Diretiva de reporte sustentabilidade |
+| **GWP** | Global Warming Potential | Potencial de aquecimento global |
+
+### Acrónimos de Machine Learning
+
+| Acrónimo | Significado | Explicação |
+|----------|-------------|------------|
+| **ML** | Machine Learning | Aprendizagem automática |
+| **DRL** | Deep Reinforcement Learning | Aprendizagem por reforço profunda |
+| **MAB** | Multi-Armed Bandit | Problema de bandit multi-braço |
+| **UCB** | Upper Confidence Bound | Limite superior de confiança |
+| **DQN** | Deep Q-Network | Rede Q profunda |
+| **PPO** | Proximal Policy Optimization | Otimização de política proximal |
+| **ARIMA** | AutoRegressive Integrated Moving Average | Modelo de séries temporais |
+| **XGBoost** | Extreme Gradient Boosting | Gradient boosting extremo |
+| **LSTM** | Long Short-Term Memory | Memória de longo-curto prazo (rede recorrente) |
+
+### Acrónimos de Análise Causal
+
+| Acrónimo | Significado | Explicação |
+|----------|-------------|------------|
+| **ATE** | Average Treatment Effect | Efeito médio do tratamento |
+| **DML** | Double Machine Learning | Machine learning duplo (debiasing) |
+| **OLS** | Ordinary Least Squares | Mínimos quadrados ordinários |
+| **CEVAE** | Causal Effect VAE | VAE para efeitos causais |
+| **TARNet** | Treatment-Agnostic Representation Network | Rede de representação agnóstica ao tratamento |
+| **DragonNet** | - | TARNet + propensity score |
+
+### Acrónimos de Simulação
+
+| Acrónimo | Significado | Explicação |
+|----------|-------------|------------|
+| **ZDM** | Zero Disruption Manufacturing | Fabrico sem disrupções |
+| **What-If** | - | Análise de cenários hipotéticos |
+| **Monte Carlo** | - | Simulação estocástica com amostragem |
+
+### Acrónimos de Integração
+
+| Acrónimo | Significado | Explicação |
+|----------|-------------|------------|
+| **ERP** | Enterprise Resource Planning | Sistema de gestão empresarial |
+| **MES** | Manufacturing Execution System | Sistema de execução da produção |
+| **CMMS** | Computerized Maintenance Management System | Sistema de gestão de manutenção |
+| **ETL** | Extract, Transform, Load | Extrair, transformar, carregar (dados) |
+| **API** | Application Programming Interface | Interface de programação |
+| **LLM** | Large Language Model | Modelo de linguagem grande |
+
+---
+
+## COMO LER ESTE DOCUMENTO
+
+### Estrutura de Cada Módulo
+
+Cada módulo está documentado com:
+
+1. **Descrição** - O que o módulo faz e porque existe
+2. **Classes** - Estruturas de dados principais
+3. **Funções** - Operações disponíveis
+4. **Cálculos Matemáticos** - Fórmulas usadas com explicação
+5. **Exemplos** - Aplicação prática
+6. **Status** - Se está implementado, parcial, ou planeado
+
+### Legenda de Status
+
+| Símbolo | Significado |
+|---------|-------------|
+| ✅ | Totalmente implementado e funcional |
+| ⚠️ | Parcialmente implementado (stub ou TODO) |
+| ❌ | Não implementado (apenas interface definida) |
+| 🔬 | Planeado para R&D (investigação futura) |
+
+### Tipos de Código
+
+- **Código implementado** - Pode ser usado imediatamente
+- **Stub** - Estrutura existe mas função retorna placeholder
+- **TODO** - Marcado para implementação futura
+- **R&D** - Investigação académica/experimental
+
+---
+
 # 🔢 ÍNDICE DE MÓDULOS
 
 | # | Módulo | Ficheiros | Status | Linhas Código |
@@ -146,6 +415,289 @@ Modelo CP-SAT:
 
 ---
 
+## 1.4 TEORIA COMPLETA DE SCHEDULING (Para Leitores Externos)
+
+### O Que é Scheduling Industrial?
+
+**Scheduling** (escalonamento) é o processo de atribuir recursos (máquinas, operadores) a tarefas (operações) ao longo do tempo, respeitando restrições e otimizando objetivos.
+
+**Problema Fundamental:**
+- Temos N jobs (ordens de produção)
+- Cada job tem M operações a executar em sequência
+- Cada operação precisa de uma máquina específica
+- Queremos minimizar o tempo total (makespan) ou atrasos (tardiness)
+
+### Tipos de Problemas de Scheduling
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    TAXONOMIA DE SCHEDULING                       │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  Single Machine          Flow-Shop              Job-Shop        │
+│  ┌───┐                  ┌───┬───┬───┐         ┌───┐  ┌───┐     │
+│  │ M │ ← todos os       │M1 │M2 │M3 │         │M1 │  │M3 │     │
+│  └───┘   jobs aqui      └───┴───┴───┘         └───┘  └───┘     │
+│                           ↓   ↓   ↓             ↑      ↓       │
+│                          Todos seguem          Cada job tem     │
+│                          mesma sequência       rota própria     │
+│                                                                 │
+│  Complexidade:           Complexidade:         Complexidade:    │
+│  O(n log n)              NP-hard               NP-hard          │
+│                                                (mais difícil)   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### MILP: Mixed-Integer Linear Programming
+
+#### O Que é MILP?
+
+MILP é uma técnica de otimização matemática onde:
+- Algumas variáveis são **inteiras** (ou binárias: 0 ou 1)
+- Outras são **contínuas** (números reais)
+- A função objetivo e restrições são **lineares**
+
+#### Por Que Usar MILP para Scheduling?
+
+- **Garantia de otimalidade** (ou gap conhecido)
+- **Flexibilidade** para modelar qualquer restrição
+- **Solvers comerciais** muito eficientes (Gurobi, CPLEX)
+
+#### Formulação MILP Completa para Job-Shop
+
+**Conjuntos:**
+```
+J = {1, 2, ..., n}     Conjunto de jobs
+M = {1, 2, ..., m}     Conjunto de máquinas
+O_j = {1, ..., o_j}    Operações do job j
+```
+
+**Parâmetros:**
+```
+p_jo    = tempo de processamento da operação o do job j (minutos)
+d_j     = data de entrega do job j (minutos desde início)
+w_j     = peso/prioridade do job j
+r_j     = tempo de disponibilidade do job j
+s_ij    = tempo de setup ao mudar do produto i para j
+M       = número grande (big-M) para restrições disjuntivas
+```
+
+**Variáveis de Decisão:**
+```
+start_jo ≥ 0           Tempo de início da operação o do job j
+end_jo ≥ 0             Tempo de fim da operação o do job j
+C_max ≥ 0              Makespan (tempo de conclusão máximo)
+T_j ≥ 0                Tardiness (atraso) do job j
+y_ijo ∈ {0,1}          1 se job i precede job j na mesma máquina
+```
+
+**Função Objetivo:**
+```
+Minimizar: α₁·C_max + α₂·Σⱼ(wⱼ·Tⱼ) + α₃·Σ(setup times)
+
+Onde:
+  α₁ = peso do makespan (tipicamente 1.0)
+  α₂ = peso dos atrasos (tipicamente 0.1-1.0)
+  α₃ = peso dos setups (tipicamente 0.01-0.1)
+```
+
+**Restrições:**
+
+```
+(1) Duração da operação:
+    end_jo = start_jo + p_jo                      ∀j, ∀o ∈ O_j
+
+(2) Precedência dentro de cada job:
+    start_j(o+1) ≥ end_jo                         ∀j, ∀o = 1...|O_j|-1
+
+(3) Não-sobreposição por máquina (Big-M):
+    start_jo ≥ end_io + s_ij - M·(1 - y_ijo)      ∀i≠j em mesma máquina
+    start_io ≥ end_jo - M·y_ijo                   ∀i≠j em mesma máquina
+
+(4) Makespan:
+    C_max ≥ end_jo                                ∀j, o = último de j
+
+(5) Tardiness:
+    T_j ≥ end_jo - d_j                            ∀j, o = último de j
+    T_j ≥ 0
+
+(6) Disponibilidade:
+    start_j1 ≥ r_j                                ∀j
+```
+
+**Exemplo Numérico:**
+
+```
+Dados:
+  Job 1: 2 operações, p=[30, 45], d=100, w=1
+  Job 2: 2 operações, p=[20, 35], d=80, w=2
+  Máquinas: M1 (op1 de ambos), M2 (op2 de ambos)
+
+Solução ótima (MILP):
+  Job 2 op1: start=0, end=20 (M1)
+  Job 1 op1: start=20, end=50 (M1)
+  Job 2 op2: start=20, end=55 (M2)
+  Job 1 op2: start=55, end=100 (M2)
+
+  C_max = 100 minutos
+  Tardiness Job 1 = max(0, 100-100) = 0
+  Tardiness Job 2 = max(0, 55-80) = 0
+```
+
+### CP-SAT: Constraint Programming with SAT
+
+#### O Que é CP-SAT?
+
+CP-SAT combina:
+- **Constraint Programming (CP)**: modela problema com variáveis e restrições
+- **SAT Solver**: resolve satisfatibilidade booleana
+
+#### Vantagens sobre MILP para Scheduling
+
+| Aspecto | MILP | CP-SAT |
+|---------|------|--------|
+| Formulação | Requer Big-M | NoOverlap nativo |
+| Interval vars | Simulado | Nativo |
+| Propagação | Limitada | Forte |
+| Velocidade | Boa | Geralmente melhor |
+| Gap ótimo | Sempre | Nem sempre |
+
+#### Formulação CP-SAT
+
+```python
+# Variáveis de intervalo (nativas em CP-SAT)
+for cada operação op:
+    start[op] = NewIntVar(0, horizon)
+    end[op] = NewIntVar(0, horizon)
+    interval[op] = NewIntervalVar(start[op], duration[op], end[op])
+
+# Precedência
+for cada job j:
+    for operações consecutivas (op1, op2):
+        Add(end[op1] <= start[op2])
+
+# Não-sobreposição (constraint global)
+for cada máquina m:
+    AddNoOverlap([interval[op] for op in operações_de_m])
+
+# Makespan
+makespan = NewIntVar(0, horizon)
+for cada última operação last_op:
+    Add(makespan >= end[last_op])
+
+Minimize(makespan)
+```
+
+### Heurísticas de Dispatching
+
+#### Por Que Usar Heurísticas?
+
+- **Velocidade**: O(n log n) vs exponencial para MILP/CP-SAT
+- **Simplicidade**: Fácil de implementar e explicar
+- **Robustez**: Sempre produz uma solução válida
+- **Tempo real**: Pode decidir em milissegundos
+
+#### Regras de Despacho Explicadas
+
+**1. FIFO (First In, First Out)**
+```
+Critério: Ordenar por tempo de chegada
+Fórmula: score = release_time
+Vantagem: Justo, fácil de explicar
+Desvantagem: Ignora datas de entrega
+```
+
+**2. SPT (Shortest Processing Time)**
+```
+Critério: Operação mais curta primeiro
+Fórmula: score = processing_time
+Vantagem: Minimiza tempo médio de fluxo
+Desvantagem: Jobs longos podem atrasar muito
+```
+
+**Prova de optimalidade (single machine):**
+Para minimizar Σ completion_times, SPT é ótimo.
+Se job i antes de j, e p_i > p_j, trocar reduz Σ.
+
+**3. EDD (Earliest Due Date)**
+```
+Critério: Data de entrega mais próxima primeiro
+Fórmula: score = due_date
+Vantagem: Minimiza lateness máximo
+Desvantagem: Pode causar muitos setups
+```
+
+**4. CR (Critical Ratio)**
+```
+Critério: Rácio entre tempo disponível e tempo necessário
+Fórmula: CR = (due_date - now) / remaining_processing_time
+
+Interpretação:
+  CR < 1.0 → Vai atrasar (prioritário!)
+  CR = 1.0 → On schedule
+  CR > 1.0 → À frente do prazo
+  CR < 0   → Já atrasado
+```
+
+**5. WSPT (Weighted SPT)**
+```
+Critério: Maximizar valor por tempo
+Fórmula: score = weight / processing_time
+
+Vantagem: Considera prioridades
+Óptimo para: Minimizar Σ(w_j × C_j)
+```
+
+**Exemplo Comparativo:**
+
+```
+Jobs disponíveis:
+  A: p=30min, due=100, w=1
+  B: p=10min, due=50, w=2
+  C: p=20min, due=80, w=1
+
+Ordenação por cada regra:
+  FIFO: A, B, C (ordem chegada)
+  SPT:  B, C, A (10 < 20 < 30)
+  EDD:  B, C, A (50 < 80 < 100)
+  WSPT: B, C, A (2/10=0.2 > 1/20=0.05 > 1/30=0.033)
+```
+
+### Comparação de Métodos
+
+| Critério | MILP | CP-SAT | Heurísticas |
+|----------|------|--------|-------------|
+| Qualidade solução | Ótima | Ótima/Boa | Boa/Aceitável |
+| Tempo (50 jobs) | 1-60s | 0.5-30s | <0.1s |
+| Tempo (500 jobs) | Timeout | 10-300s | <1s |
+| Garantia gap | Sim | Parcial | Não |
+| Explicabilidade | Baixa | Baixa | Alta |
+| Facilidade | Média | Média | Alta |
+
+### Quando Usar Cada Método
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    ÁRVORE DE DECISÃO                             │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  Quantos jobs/operações?                                        │
+│  │                                                              │
+│  ├── < 50 jobs → MILP ou CP-SAT (solução ótima)                 │
+│  │              └── Setup complexo? → MILP                      │
+│  │              └── Scheduling puro? → CP-SAT                   │
+│  │                                                              │
+│  ├── 50-200 jobs → CP-SAT com time limit                        │
+│  │                                                              │
+│  └── > 200 jobs → Heurísticas                                   │
+│                   └── Tempo real? → SPT ou FIFO                 │
+│                   └── Datas críticas? → EDD ou CR               │
+│                   └── Prioridades? → WSPT                       │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
 # 2️⃣ MÓDULO OPTIMIZATION
 
 ## 2.1 Learning Scheduler (Bandits)
@@ -263,6 +815,403 @@ class TimePredictor(nn.Module):
             nn.ReLU(),
             nn.Linear(hidden_size // 2, 2),  # setup_time, cycle_time
         )
+```
+
+---
+
+## 2.4 TEORIA COMPLETA DE MACHINE LEARNING PARA SCHEDULING (Para Leitores Externos)
+
+### O Problema Exploration vs Exploitation
+
+#### Contexto Industrial
+Imagine que tem 5 máquinas que podem fazer a mesma operação, mas com tempos diferentes. Como escolher a melhor?
+
+**Abordagem Ingénua:** Medir uma vez e sempre usar a melhor.
+**Problema:** E se as medições iniciais estavam erradas? E se a máquina degradou?
+
+**Solução:** Balancear **exploração** (testar alternativas) e **exploitação** (usar o melhor conhecido).
+
+### Multi-Armed Bandits (MAB)
+
+#### O Problema do Bandit
+
+```
+Imagine um casino com K slot machines (bandits).
+Cada máquina i tem uma probabilidade oculta μᵢ de dar prémio.
+Objetivo: Maximizar prémios após T jogadas.
+
+                 ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐
+                 │ μ₁  │ │ μ₂  │ │ μ₃  │ │ μ₄  │
+                 │ =?  │ │ =?  │ │ =?  │ │ =?  │
+                 └─────┘ └─────┘ └─────┘ └─────┘
+                    ↑
+              Qual escolher?
+```
+
+#### Regret (Arrependimento)
+
+```
+Definição:
+  Regret(T) = T × μ* - Σₜ₌₁ᵀ rₜ
+
+  Onde:
+    μ* = max_a E[r|a] = recompensa média da melhor ação
+    rₜ = recompensa obtida no passo t
+
+Interpretação:
+  Regret = Quanto perdemos por não saber a melhor ação desde início
+
+Objetivo:
+  Minimizar Regret(T)
+  
+Melhor possível: O(log T) - cresce logaritmicamente com T
+```
+
+### Epsilon-Greedy
+
+#### Algoritmo
+```
+A cada passo t:
+  Com probabilidade ε: escolher ação aleatória (EXPLORAR)
+  Com probabilidade 1-ε: escolher melhor ação conhecida (EXPLOITAR)
+  
+  Após receber recompensa r:
+    Q(a) ← Q(a) + α(r - Q(a))    # Média móvel exponencial
+```
+
+#### Exemplo Numérico
+```
+Ações: A, B, C
+Valores Q iniciais: Q(A)=0, Q(B)=0, Q(C)=0
+ε = 0.1, α = 0.1
+
+Passo 1: Random → B, r=10 → Q(B) = 0 + 0.1×(10-0) = 1.0
+Passo 2: Greedy → B, r=5  → Q(B) = 1.0 + 0.1×(5-1.0) = 1.4
+Passo 3: Random → A, r=15 → Q(A) = 0 + 0.1×(15-0) = 1.5
+Passo 4: Greedy → A, r=12 → Q(A) = 1.5 + 0.1×(12-1.5) = 2.55
+```
+
+#### Propriedades
+```
+Vantagens:
+  - Simples de implementar
+  - Sempre explora (não fica preso)
+
+Desvantagens:
+  - Explora uniformemente (não foca em ações promissoras)
+  - ε fixo (devia diminuir com o tempo)
+  - Regret: O(T) - linear, não ótimo
+```
+
+### Upper Confidence Bound (UCB)
+
+#### Intuição
+"Ser otimista face à incerteza"
+- Se não conhecemos bem uma ação, assumimos que pode ser boa
+- Ações pouco exploradas têm "bónus" de incerteza
+
+#### Fórmula UCB1
+```
+UCB(a) = Q̂(a) + c × √(ln(t) / n(a))
+         ─────   ─────────────────────
+         Média     Bónus de incerteza
+         estimada
+
+Onde:
+  Q̂(a) = média empírica de recompensas da ação a
+  n(a) = número de vezes que a foi selecionada
+  t = total de passos até agora
+  c = constante de exploração (tipicamente √2 ≈ 1.414)
+
+Selecionar: a* = argmax_a UCB(a)
+```
+
+#### Derivação Teórica
+```
+O termo √(ln(t)/n(a)) vem do limite de Hoeffding:
+
+P(|Q̂(a) - Q(a)| > ε) ≤ 2·exp(-2n(a)ε²)
+
+Se quisermos confiança 1-1/t², então:
+  ε = √(ln(t²)/(2n(a))) = √(2ln(t)/n(a))
+
+Simplificando com c = √2:
+  UCB(a) = Q̂(a) + c√(ln(t)/n(a))
+```
+
+#### Exemplo Numérico
+```
+Após 100 passos:
+  Ação A: n(A)=60, Q̂(A)=8.5
+  Ação B: n(B)=30, Q̂(B)=7.0
+  Ação C: n(C)=10, Q̂(C)=9.0
+
+UCB(A) = 8.5 + 1.414×√(ln(100)/60) = 8.5 + 1.414×√(4.6/60) = 8.5 + 0.39 = 8.89
+UCB(B) = 7.0 + 1.414×√(ln(100)/30) = 7.0 + 1.414×√(4.6/30) = 7.0 + 0.55 = 7.55
+UCB(C) = 9.0 + 1.414×√(ln(100)/10) = 9.0 + 1.414×√(4.6/10) = 9.0 + 0.96 = 9.96
+
+Escolher: C (maior UCB, mesmo com menos observações)
+```
+
+#### Propriedades
+```
+Vantagens:
+  - Regret: O(log T) - ótimo!
+  - Explora menos ações que já conhecemos bem
+  - Sem parâmetro ε para ajustar
+
+Desvantagens:
+  - Assume recompensas limitadas [0,1]
+  - Não considera contexto
+```
+
+### Thompson Sampling
+
+#### Intuição
+"Amostrar da posterior e agir como se fosse verdade"
+- Manter distribuição de probabilidade sobre cada Q(a)
+- Amostrar de cada distribuição
+- Escolher ação com maior amostra
+
+#### Algoritmo (Bernoulli Bandits)
+```
+Inicializar:
+  Para cada ação a: α(a)=1, β(a)=1  # Prior uniforme Beta(1,1)
+
+A cada passo t:
+  Para cada ação a:
+    θ(a) ~ Beta(α(a), β(a))  # Amostrar da posterior
+  
+  Selecionar: a* = argmax_a θ(a)
+  Executar a*, observar recompensa r ∈ {0,1}
+  
+  Atualizar:
+    Se r=1: α(a*) ← α(a*) + 1  # Sucesso
+    Se r=0: β(a*) ← β(a*) + 1  # Falha
+```
+
+#### Visualização
+```
+Posterior Beta(α,β) para cada ação:
+
+Ação A: α=10, β=5  →  Média = α/(α+β) = 10/15 = 0.67
+                      ┌────────────────┐
+                      │   ▄▄████▄▄     │  Concentrada em ~0.67
+                      └────────────────┘
+                      0              1
+
+Ação B: α=3, β=2   →  Média = 3/5 = 0.60
+                      ┌────────────────┐
+                      │  ▄▄████████    │  Mais espalhada
+                      └────────────────┘
+                      0              1
+
+Ação B tem mais incerteza → pode ser amostrada acima de A
+```
+
+#### Exemplo Numérico
+```
+Estado: α(A)=20, β(A)=10, α(B)=5, β(B)=3
+
+Amostragens:
+  θ(A) ~ Beta(20,10) = 0.68 (amostra)
+  θ(B) ~ Beta(5,3) = 0.72 (amostra)
+
+Escolher: B (θ(B) > θ(A) nesta amostra)
+Mesmo que A tenha média maior (0.67 vs 0.625), B foi escolhido por incerteza
+```
+
+#### Propriedades
+```
+Vantagens:
+  - Bayes-optimal
+  - Regret: O(log T)
+  - Natural para extensões (contexto, não-estacionário)
+  - Fácil de implementar
+
+Desvantagens:
+  - Precisa de distribuição conjugada
+  - Amostras podem ser custosas computacionalmente
+```
+
+### Contextual Bandits
+
+#### Motivação
+Em scheduling, a melhor ação depende do **contexto**:
+- Carga atual das máquinas
+- Tipo de produto
+- Hora do dia
+
+#### Modelo
+```
+A cada passo t:
+  Observar contexto x ∈ ℝᵈ
+  Escolher ação a ∈ A
+  Receber recompensa r
+
+Objetivo: Aprender π(x) → a que maximiza E[r|x,a]
+```
+
+#### Linear UCB (LinUCB)
+```
+Modelo: E[r|x,a] = θₐᵀx  (linear no contexto)
+
+Parâmetros:
+  Para cada ação a:
+    Aₐ = Xₐᵀ Xₐ + λI   # Matriz de design
+    bₐ = Xₐᵀ yₐ        # Vetor de recompensas
+
+  Estimativa: θ̂ₐ = Aₐ⁻¹ bₐ
+
+UCB contextual:
+  UCB(a|x) = θ̂ₐᵀx + α√(xᵀ Aₐ⁻¹ x)
+              ───────   ────────────────
+               Média     Incerteza dado x
+```
+
+#### Exemplo em Scheduling
+```
+Contexto x = [carga_M1, carga_M2, carga_M3, prioridade_job]
+          = [0.8, 0.3, 0.5, HIGH]
+
+Ações: A=Máquina1, B=Máquina2, C=Máquina3
+
+LinUCB aprende:
+  θ_A = [-0.5, 0.0, 0.0, 0.2]  # M1 evita carga alta
+  θ_B = [0.0, -0.3, 0.0, 0.1]  # M2 evita carga própria
+  θ_C = [0.0, 0.0, -0.4, 0.3]  # M3 valoriza prioridade
+
+UCB(A|x) = θ_Aᵀx + α√incerteza = -0.4 + 0.2 = -0.2 + bonus
+UCB(B|x) = θ_Bᵀx + α√incerteza = -0.09 + 0.1 = 0.01 + bonus
+UCB(C|x) = θ_Cᵀx + α√incerteza = -0.2 + 0.3 = 0.1 + bonus
+
+Escolher: C (melhor UCB contextual)
+```
+
+### Deep Reinforcement Learning (DRL)
+
+#### Por Que DRL?
+
+Bandits são **stateless** - cada decisão é independente.
+Em scheduling, decisões afetam o **estado futuro**:
+- Escolher máquina A agora → fila de A cresce → afeta próxima decisão
+
+DRL modela este **processo de decisão sequencial**.
+
+#### Markov Decision Process (MDP)
+```
+MDP = (S, A, P, R, γ)
+
+S = conjunto de estados (ex: cargas de máquinas)
+A = conjunto de ações (ex: atribuições job→máquina)
+P(s'|s,a) = probabilidade de transição
+R(s,a) = recompensa imediata
+γ ∈ [0,1] = fator de desconto
+
+Objetivo: Maximizar retorno esperado
+  G = Σₜ γᵗ rₜ
+```
+
+#### Q-Learning
+```
+Valor Q = recompensa esperada de tomar ação a no estado s e seguir política ótima
+
+Q*(s,a) = E[r + γ max_a' Q*(s',a') | s,a]
+
+Atualização:
+  Q(s,a) ← Q(s,a) + α [r + γ max_a' Q(s',a') - Q(s,a)]
+                       ─────────────────────────────────
+                            "TD target" - atual
+```
+
+#### Deep Q-Network (DQN)
+```
+Problema: Tabela Q(s,a) não escala para estados grandes
+
+Solução: Aproximar Q com rede neural
+
+  Q(s,a; θ) ≈ Q*(s,a)
+
+Treino:
+  Loss = (r + γ max_a' Q(s',a'; θ⁻) - Q(s,a; θ))²
+                      ──────────────
+                      Target network (cópia atrasada)
+
+Técnicas:
+  - Experience Replay: guardar (s,a,r,s') e amostrar batches
+  - Target Network: θ⁻ atualizado lentamente
+  - Double DQN: separar seleção e avaliação de ações
+```
+
+#### Estado para Scheduling
+```python
+state = {
+    # Filas por máquina
+    "queue_M1": [job1, job2, job3],  # 3 jobs esperando
+    "queue_M2": [job4],               # 1 job esperando
+    "queue_M3": [],                   # vazia
+    
+    # Ocupação atual
+    "busy_M1": True,  "remaining_M1": 15,  # 15 min restantes
+    "busy_M2": False, "remaining_M2": 0,
+    "busy_M3": True,  "remaining_M3": 8,
+    
+    # Jobs disponíveis para alocação
+    "pending_jobs": [job5, job6],
+    
+    # Tempo atual
+    "time": 240,  # minutos desde início
+}
+```
+
+#### Recompensa para Scheduling
+```
+r = -α×Δmakespan - β×Δtardiness - γ×idle_time + δ×throughput
+
+Onde:
+  Δmakespan = aumento no makespan previsto
+  Δtardiness = novos atrasos criados
+  idle_time = tempo que máquinas ficam paradas
+  throughput = operações completadas
+
+Típico: α=0.1, β=1.0, γ=0.01, δ=0.5
+```
+
+### Comparação de Métodos
+
+| Método | Contexto | Estado | Regret | Complexidade |
+|--------|----------|--------|--------|--------------|
+| ε-Greedy | ❌ | ❌ | O(T) | O(1) |
+| UCB | ❌ | ❌ | O(log T) | O(K) |
+| Thompson | ❌ | ❌ | O(log T) | O(K) |
+| LinUCB | ✅ | ❌ | O(d√T) | O(d²K) |
+| DQN | ✅ | ✅ | - | O(NN forward) |
+
+### Quando Usar Cada Método
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    ÁRVORE DE DECISÃO ML                          │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  Decisões são independentes?                                    │
+│  │                                                              │
+│  ├── SIM (Bandits)                                              │
+│  │   │                                                          │
+│  │   ├── Contexto importa?                                      │
+│  │   │   ├── SIM → LinUCB ou Contextual Thompson               │
+│  │   │   └── NÃO → UCB ou Thompson Sampling                    │
+│  │   │                                                          │
+│  └── NÃO (RL)                                                   │
+│       │                                                         │
+│       ├── Estado pequeno (<1000)?                               │
+│       │   ├── SIM → Q-Learning tabular                         │
+│       │   └── NÃO → DQN (requer treino offline)                │
+│       │                                                         │
+│       └── Tem dados históricos?                                 │
+│           ├── SIM → Treinar DQN offline                         │
+│           └── NÃO → Começar com heurísticas + bandit            │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -417,6 +1366,358 @@ Pattern Detection:
 
 Root Cause Analysis:
   P(cause|deviation) ∝ P(deviation|cause) * P(cause)
+```
+
+---
+
+## 4.4 TEORIA COMPLETA DE DIGITAL TWIN (Para Leitores Externos)
+
+### O Que é um Digital Twin?
+
+#### Definição
+Um **Digital Twin** é uma réplica virtual de um ativo físico (máquina, processo, produto) que:
+- Recebe dados em tempo real do ativo físico
+- Simula e prevê o comportamento
+- Permite análise e otimização sem afetar o real
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    CONCEITO DIGITAL TWIN                         │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│     FÍSICO                              DIGITAL                 │
+│   ┌────────┐                          ┌────────┐                │
+│   │        │──── Sensores IoT ────>   │        │                │
+│   │MÁQUINA │                          │ MODELO │                │
+│   │        │<── Comandos/Alertas ──── │VIRTUAL │                │
+│   └────────┘                          └────────┘                │
+│        │                                   │                    │
+│        │                                   │                    │
+│   Degradação real                    Predição RUL               │
+│   Operação real                      Simulação What-If          │
+│   Falhas reais                       Deteção anomalias          │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Health Indicator (HI) com CVAE
+
+#### Problema
+Como saber se uma máquina está "saudável" a partir de dados de sensores?
+
+- Temperatura: 45°C - bom ou mau?
+- Vibração: 2.5 mm/s - normal?
+- Corrente: 12A - degradação?
+
+#### Solução: Aprender o que é "Normal"
+
+Um **Conditional Variational Autoencoder (CVAE)** aprende a reconstruir dados de sensores de máquinas saudáveis. Se não consegue reconstruir → máquina anómala.
+
+#### Arquitectura CVAE
+
+```
+                ENCODER                           DECODER
+            ┌────────────┐                    ┌────────────┐
+            │            │                    │            │
+  x ───────>│ q(z|x,c)   │─── μ, σ ───>      │ p(x|z,c)   │────> x̂
+            │            │      │    z        │            │
+            └────────────┘      │             └────────────┘
+                  ↑             │                   ↑
+                  │       ┌─────┴─────┐             │
+  c ──────────────┴───────┤ z~N(μ,σ²) ├─────────────┘
+  (contexto)              └───────────┘
+                         (reparametrização)
+
+Onde:
+  x = dados de sensores [temperatura, vibração, pressão, corrente]
+  c = contexto [tipo_máquina, tipo_operação, idade]
+  z = representação latente
+  x̂ = reconstrução
+```
+
+#### Loss Function (ELBO)
+
+```
+Loss = Reconstruction + KL Divergence
+
+L(θ,φ) = -E_q(z|x,c)[log p(x|z,c)] + KL(q(z|x,c) || p(z))
+         ────────────────────────   ─────────────────────
+         Erro de reconstrução       Regularização
+         (forçar z informativo)     (forçar z ~ N(0,1))
+
+Reconstrução (MSE):
+  Reconstruction = (1/n) × Σᵢ(xᵢ - x̂ᵢ)²
+
+KL Divergence (forma fechada para Gaussianas):
+  KL = -½ × Σⱼ(1 + log(σⱼ²) - μⱼ² - σⱼ²)
+```
+
+#### Health Index
+
+```
+Treino:
+  1. Treinar CVAE apenas com dados de máquinas SAUDÁVEIS
+  2. Calcular distribuição de erros de reconstrução
+  3. Determinar threshold (ex: percentil 95)
+
+Inferência:
+  1. Obter nova leitura de sensores x
+  2. Reconstruir: x̂ = CVAE(x, contexto)
+  3. Calcular erro: e = ||x - x̂||²
+  4. Health Index: HI = max(0, 1 - e/threshold)
+
+Interpretação:
+  HI = 1.0 → Perfeitamente saudável
+  HI = 0.7 → Ligeira degradação
+  HI = 0.5 → Degradação moderada (WARNING)
+  HI = 0.3 → Crítico
+  HI = 0.0 → Falha iminente
+```
+
+#### Exemplo Numérico
+
+```
+Sensores numa máquina CNC:
+  Temperatura: 52°C
+  Vibração: 3.2 mm/s
+  Corrente: 14A
+  Pressão: 4.8 bar
+
+Input: x = [52, 3.2, 14, 4.8]
+Contexto: c = [CNC_TYPE_A, CORTE, 5_ANOS]
+
+CVAE reconstrói: x̂ = [48, 2.5, 12, 5.0]
+
+Erro: e = (52-48)² + (3.2-2.5)² + (14-12)² + (4.8-5.0)²
+       = 16 + 0.49 + 4 + 0.04 = 20.53
+
+Threshold (treinado): θ = 30
+
+HI = max(0, 1 - 20.53/30) = max(0, 0.32) = 0.32 → WARNING
+```
+
+### RUL: Remaining Useful Life
+
+#### Problema
+Quanto tempo resta até a máquina falhar?
+
+#### Modelos de Degradação
+
+**1. Degradação Linear**
+```
+HI(t) = HI₀ - β × t
+
+Onde:
+  HI₀ = Health Index inicial (tipicamente 1.0)
+  β = taxa de degradação (HI/hora)
+  t = tempo operacional
+
+RUL:
+  Falha quando HI = HI_threshold (ex: 0.2)
+  RUL = (HI_atual - HI_threshold) / β
+
+Exemplo:
+  HI_atual = 0.7
+  HI_threshold = 0.2
+  β = 0.0001 HI/hora (estimado de histórico)
+  
+  RUL = (0.7 - 0.2) / 0.0001 = 5000 horas
+```
+
+**2. Degradação Exponencial**
+```
+HI(t) = HI₀ × exp(-λ × t)
+
+Onde:
+  λ = taxa de degradação exponencial
+
+Inversão para RUL:
+  HI_threshold = HI₀ × exp(-λ × RUL)
+  RUL = -ln(HI_threshold / HI₀) / λ
+  RUL = ln(HI₀ / HI_threshold) / λ
+
+Exemplo:
+  HI₀ = 1.0, HI_atual = 0.7 (após 1000h)
+  λ = -ln(0.7)/1000 = 0.000357
+  HI_threshold = 0.2
+  
+  RUL_from_now = ln(0.7/0.2) / 0.000357
+              = ln(3.5) / 0.000357
+              = 1.25 / 0.000357
+              = 3500 horas
+```
+
+**3. Processo Wiener (Estocástico)**
+```
+dX(t) = μ dt + σ dW(t)
+
+Onde:
+  X(t) = degradação acumulada
+  μ = drift (taxa média de degradação)
+  σ = volatilidade
+  W(t) = processo de Wiener (ruído Browniano)
+
+RUL ~ Inverse Gaussian(μ_rul, λ_rul)
+
+Onde:
+  μ_rul = (D_fail - X_atual) / μ
+  λ_rul = (D_fail - X_atual)² / σ²
+  D_fail = limiar de falha
+```
+
+#### Incerteza no RUL (Monte Carlo)
+
+```
+PARA i = 1 até N_samples:
+    # Amostrar parâmetros de degradação
+    β_i ~ Normal(β_mean, β_std)  # ou λ_i para exponencial
+    
+    # Simular degradação futura
+    HI_futuro[i] = simular_degradacao(HI_atual, β_i, horizonte)
+    
+    # Encontrar tempo até falha
+    RUL_i = encontrar_primeiro_cruzamento(HI_futuro[i], HI_threshold)
+
+RUL_mean = mean(RUL_samples)
+RUL_std = std(RUL_samples)
+RUL_CI = [percentile(RUL_samples, 2.5), percentile(RUL_samples, 97.5)]
+```
+
+### XAI-DT: Explainable AI Digital Twin
+
+#### Problema
+Quando um produto sai com defeito, qual a causa raiz?
+
+#### Análise de Desvios Geométricos
+
+```
+Comparar geometria real (scan 3D) vs. nominal (CAD):
+
+Para cada ponto p na superfície:
+  δ(p) = ||scan(p) - CAD(p)||
+
+Campo de desvios:
+  δ: Superfície → ℝ³
+```
+
+#### Padrões de Defeito
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│              PADRÕES DE DEFEITO E CAUSAS RAIZ                   │
+├──────────────┬───────────────────┬─────────────────────────────┤
+│ Padrão       │ Característica    │ Causa Provável              │
+├──────────────┼───────────────────┼─────────────────────────────┤
+│ Warping      │ Curvatura global  │ Arrefecimento não-uniforme  │
+│ (empeno)     │ (bordos levantam) │ Tensões residuais           │
+├──────────────┼───────────────────┼─────────────────────────────┤
+│ Shrinkage    │ Encolhimento      │ Temperatura de injeção      │
+│ (contração)  │ uniforme          │ Tempo de pressurização      │
+├──────────────┼───────────────────┼─────────────────────────────┤
+│ Sink marks   │ Depressões locais │ Secções espessas            │
+│              │                   │ Arrefecimento insuficiente  │
+├──────────────┼───────────────────┼─────────────────────────────┤
+│ Flash        │ Excesso material  │ Pressão excessiva           │
+│ (rebarbas)   │ nas juntas        │ Desgaste do molde           │
+├──────────────┼───────────────────┼─────────────────────────────┤
+│ Surface      │ Rugosidade        │ Velocidade injeção          │
+│ defects      │ elevada           │ Temperatura material        │
+└──────────────┴───────────────────┴─────────────────────────────┘
+```
+
+#### Inferência Bayesiana para Causa Raiz
+
+```
+Dado: Desvio observado D
+Objetivo: Encontrar causa mais provável C
+
+P(C|D) = P(D|C) × P(C) / P(D)
+         ─────────────────────
+              Bayes
+
+Onde:
+  P(C) = prior sobre causas (baseado em histórico)
+  P(D|C) = likelihood (modelo físico/estatístico)
+  P(D) = marginalização
+
+Na prática:
+  1. Detetar padrão dominante (warping, shrinkage, etc.)
+  2. Consultar base de conhecimento
+  3. Ordenar causas por P(C|D)
+  4. Gerar explicação em linguagem natural
+```
+
+#### Exemplo de Explicação XAI
+
+```
+Entrada: Scan 3D de peça injetada
+
+Análise:
+  - Desvio médio: 0.35mm (acima tolerância 0.2mm)
+  - Padrão dominante: WARPING (80% confiança)
+  - Localização: bordos superiores (+0.8mm)
+  
+Causas identificadas (ordenadas por probabilidade):
+  1. Arrefecimento não-uniforme (67%)
+     → Zona superior arrefece mais rápido
+     → Recomendação: Verificar circuito de arrefecimento
+  
+  2. Tensões residuais no material (22%)
+     → Material com histórico térmico
+     → Recomendação: Recozimento prévio
+  
+  3. Design inadequado (11%)
+     → Espessura variável
+     → Recomendação: Redesign com nervuras
+```
+
+### Integração IoT
+
+#### Fluxo de Dados
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│                    PIPELINE IOT → DIGITAL TWIN                  │
+├────────────────────────────────────────────────────────────────┤
+│                                                                │
+│  SENSORES           EDGE              BACKEND                  │
+│  ┌─────┐          ┌─────┐           ┌─────────┐               │
+│  │Temp │───┐      │     │           │         │               │
+│  └─────┘   │      │MQTT/│──────────>│  CVAE   │───> HI        │
+│  ┌─────┐   ├─────>│OPC  │           │         │               │
+│  │Vibr │───┤      │ UA  │           │   RUL   │───> Alertas   │
+│  └─────┘   │      │     │           │         │               │
+│  ┌─────┐   │      │     │──────────>│  XAI    │───> Relatório │
+│  │Curr │───┘      │     │           │         │               │
+│  └─────┘          └─────┘           └─────────┘               │
+│                                                                │
+│  Frequência:       Agregação:        Análise:                  │
+│  1-1000 Hz        1s-1min           On-demand                  │
+│                                     ou scheduled               │
+└────────────────────────────────────────────────────────────────┘
+```
+
+#### Pré-processamento de Sinais
+
+```
+De sensores raw para features:
+
+Vibração (acelerómetro):
+  - RMS = √(Σxᵢ²/n)
+  - Peak = max(|x|)
+  - Crest Factor = Peak/RMS
+  - FFT → Frequências dominantes
+  - Harmónicos do eixo
+
+Temperatura:
+  - Valor atual
+  - Taxa de variação (dT/dt)
+  - Desvio da média móvel
+
+Corrente:
+  - Corrente média
+  - Pico de arranque
+  - THD (Total Harmonic Distortion)
 ```
 
 ---
@@ -623,6 +1924,413 @@ Dynamic ROP:
 
 ---
 
+## 6.5 TEORIA COMPLETA DE GESTÃO DE INVENTÁRIO (Para Leitores Externos)
+
+### O Problema da Gestão de Inventário
+
+#### Contexto Industrial
+Uma fábrica precisa de:
+- **Matérias-primas** para produzir
+- **Componentes** semi-acabados
+- **Produtos acabados** para entregar
+
+**Dilema fundamental:**
+- Stock alto → Custo de armazenamento, capital parado
+- Stock baixo → Risco de ruptura, produção para
+
+### MRP: Material Requirements Planning
+
+#### O Que é MRP?
+
+MRP responde: **Quanto encomendar? Quando encomendar?**
+
+Dado:
+- Procura de produtos acabados (ordens de venda)
+- Estrutura do produto (BOM - Bill of Materials)
+- Stock atual e encomendas em curso
+- Lead times de fornecedores
+
+#### Lógica MRP
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    LÓGICA MRP (NÍVEL A NÍVEL)                    │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  1. Começar pelo produto acabado (nível 0)                      │
+│                                                                 │
+│  2. Calcular Necessidades Brutas (Gross Requirements)           │
+│     GR(t) = Procura independente + Procura dependente           │
+│                                                                 │
+│  3. Calcular Necessidades Líquidas                              │
+│     NR(t) = max(0, GR(t) - Stock(t) - Recebimentos(t))          │
+│                                                                 │
+│  4. Planear Ordens de Encomenda                                 │
+│     Quando: NR > 0, com offset de Lead Time                     │
+│     Quanto: Política de lote (EOQ, LFL, POQ)                    │
+│                                                                 │
+│  5. Descer para próximo nível BOM                               │
+│     Repetir 2-4 para cada componente                            │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### Exemplo MRP Completo
+
+```
+PRODUTO A (Lead Time = 1 semana)
+├── Componente B (2 unidades) - Lead Time = 2 semanas
+└── Componente C (1 unidade) - Lead Time = 1 semana
+    └── Matéria-prima D (3 kg) - Lead Time = 3 semanas
+
+Procura de A: 100 unidades na semana 8
+Stock inicial: A=0, B=50, C=20, D=100kg
+
+═══════════════════════════════════════════════════════════════════
+CÁLCULO MRP PARA PRODUTO A:
+═══════════════════════════════════════════════════════════════════
+Semana          | 1  | 2  | 3  | 4  | 5  | 6  | 7  | 8  |
+────────────────|────|────|────|────|────|────|────|────|
+Necess. Brutas  |    |    |    |    |    |    |    |100 |
+Stock Inicial   | 0  |    |    |    |    |    |    |    |
+Necess. Líquidas|    |    |    |    |    |    |    |100 |
+Ordem Planeada  |    |    |    |    |    |    |100 |    | ← Release
+                                              ↑
+                                        Offset LT=1
+
+═══════════════════════════════════════════════════════════════════
+CÁLCULO MRP PARA COMPONENTE B (2 × 100 = 200 necessários):
+═══════════════════════════════════════════════════════════════════
+Semana          | 1  | 2  | 3  | 4  | 5  | 6  | 7  | 8  |
+────────────────|────|────|────|────|────|────|────|────|
+Necess. Brutas  |    |    |    |    |    |    |200 |    |
+Stock Inicial   |50  |    |    |    |    |    |    |    |
+Necess. Líquidas|    |    |    |    |    |    |150 |    | (200-50)
+Ordem Planeada  |    |    |    |    |150 |    |    |    | ← Release
+                                    ↑
+                              Offset LT=2
+
+═══════════════════════════════════════════════════════════════════
+CÁLCULO MRP PARA COMPONENTE C (1 × 100 = 100 necessários):
+═══════════════════════════════════════════════════════════════════
+Semana          | 1  | 2  | 3  | 4  | 5  | 6  | 7  | 8  |
+────────────────|────|────|────|────|────|────|────|────|
+Necess. Brutas  |    |    |    |    |    |    |100 |    |
+Stock Inicial   |20  |    |    |    |    |    |    |    |
+Necess. Líquidas|    |    |    |    |    |    | 80 |    | (100-20)
+Ordem Planeada  |    |    |    |    |    | 80 |    |    | ← Release
+                                        ↑
+                                  Offset LT=1
+```
+
+### EOQ: Economic Order Quantity
+
+#### Derivação Matemática
+
+O problema é minimizar o custo total de inventário:
+
+```
+Custo Total = Custo de Encomenda + Custo de Armazenamento
+
+CT(Q) = (D/Q) × S + (Q/2) × H
+
+Onde:
+  D = procura anual (unidades/ano)
+  Q = quantidade por encomenda (unidades)
+  S = custo por encomenda (€)
+  H = custo de armazenamento por unidade/ano (€)
+  
+  D/Q = número de encomendas por ano
+  Q/2 = stock médio
+```
+
+#### Minimização
+
+```
+Para encontrar Q* que minimiza CT:
+
+dCT/dQ = 0
+d/dQ [(D/Q)S + (Q/2)H] = 0
+-DS/Q² + H/2 = 0
+DS/Q² = H/2
+Q² = 2DS/H
+Q* = √(2DS/H)   ← FÓRMULA EOQ
+```
+
+#### Exemplo Numérico
+
+```
+Dados:
+  D = 10.000 unidades/ano
+  S = 50€ por encomenda
+  H = 2€ por unidade/ano
+
+EOQ = √(2 × 10000 × 50 / 2)
+    = √(1.000.000 / 2)
+    = √500.000
+    = 707 unidades
+
+Número de encomendas/ano = D/EOQ = 10000/707 ≈ 14 encomendas
+Custo total = (10000/707)×50 + (707/2)×2 = 707 + 707 = 1414€
+```
+
+#### Análise de Sensibilidade
+
+```
+Se Q ≠ EOQ, qual o custo extra?
+
+Custo com Q / Custo com EOQ = ½ × (Q/EOQ + EOQ/Q)
+
+Exemplo:
+  Q = 1.5 × EOQ → Custo = ½ × (1.5 + 0.67) = 1.08 → +8%
+  Q = 2 × EOQ → Custo = ½ × (2 + 0.5) = 1.25 → +25%
+  
+A curva é plana perto do ótimo → EOQ é robusto a erros
+```
+
+### ROP: Reorder Point
+
+#### Conceito
+
+ROP responde: **Quando encomendar?**
+
+```
+        Stock
+          ↑
+          │╲
+          │ ╲
+          │  ╲
+    ROP ──│───╲──────────────── ← Encomendar aqui
+          │    ╲
+          │     ╲
+          │      ╲
+     SS ──│───────╲──────────── ← Safety Stock
+          │        ╲___________
+          │            Lead Time
+          └────────────────────→ Tempo
+```
+
+#### Fórmula ROP Clássica
+
+```
+ROP = μ_d × LT + SS
+
+Onde:
+  μ_d = consumo médio diário
+  LT = lead time (dias)
+  SS = safety stock
+
+Safety Stock:
+  SS = z × σ_d × √LT
+
+Onde:
+  z = quantil da distribuição normal (nível de serviço)
+  σ_d = desvio padrão do consumo diário
+  √LT = fator de agregação para lead time
+```
+
+#### Tabela de Z-scores
+
+```
+| Nível Serviço | z     | Interpretação                |
+|---------------|-------|------------------------------|
+| 50%           | 0.00  | Ruptura em 50% das vezes     |
+| 90%           | 1.28  | Ruptura em 10% das vezes     |
+| 95%           | 1.65  | Standard industrial          |
+| 99%           | 2.33  | Alta criticidade             |
+| 99.9%         | 3.09  | Itens críticos (segurança)   |
+```
+
+#### Exemplo Numérico Completo
+
+```
+Dados:
+  Consumo médio diário: μ_d = 100 unidades
+  Desvio padrão diário: σ_d = 20 unidades
+  Lead time: LT = 7 dias
+  Nível de serviço: 95% → z = 1.65
+
+Cálculo:
+  Consumo durante LT = μ_d × LT = 100 × 7 = 700 unidades
+  
+  Safety Stock = z × σ_d × √LT
+               = 1.65 × 20 × √7
+               = 1.65 × 20 × 2.65
+               = 87 unidades
+  
+  ROP = 700 + 87 = 787 unidades
+
+Interpretação:
+  Quando stock atingir 787 unidades, fazer encomenda.
+  Temos 95% de probabilidade de não haver ruptura.
+```
+
+#### ROP com Lead Time Variável
+
+```
+Se o lead time também varia:
+
+SS = z × √(LT × σ_d² + μ_d² × σ_LT²)
+
+Exemplo adicional:
+  σ_LT = 2 dias (desvio do lead time)
+  
+  SS = 1.65 × √(7 × 20² + 100² × 2²)
+     = 1.65 × √(2800 + 40000)
+     = 1.65 × √42800
+     = 1.65 × 207
+     = 342 unidades
+     
+  ROP = 700 + 342 = 1042 unidades
+```
+
+### Classificação ABC/XYZ
+
+#### Classificação ABC (Valor)
+
+```
+Baseado na Lei de Pareto (80/20):
+
+Classe A: ~20% dos SKUs → ~80% do valor
+Classe B: ~30% dos SKUs → ~15% do valor
+Classe C: ~50% dos SKUs → ~5% do valor
+
+Procedimento:
+1. Calcular valor anual de cada SKU = preço × quantidade
+2. Ordenar por valor decrescente
+3. Calcular % acumulada
+4. Classificar conforme limiares
+```
+
+#### Classificação XYZ (Variabilidade)
+
+```
+Baseado no Coeficiente de Variação (CV = σ/μ):
+
+Classe X: CV < 0.5   → Consumo estável, fácil prever
+Classe Y: 0.5 ≤ CV < 1.0 → Consumo variável, previsível
+Classe Z: CV ≥ 1.0   → Consumo errático, difícil prever
+
+Exemplo:
+  SKU 1: μ=100, σ=30 → CV=0.3 → X
+  SKU 2: μ=50, σ=40  → CV=0.8 → Y
+  SKU 3: μ=20, σ=25  → CV=1.25 → Z
+```
+
+#### Matriz ABC-XYZ
+
+```
+         │    X (estável)   │   Y (variável)   │   Z (errático)  │
+─────────┼──────────────────┼──────────────────┼─────────────────┤
+    A    │ JIT, stock baixo │ Safety stock mod │ Safety alto     │
+ (alto   │ Forecast preciso │ Revisão frequente│ Sob encomenda?  │
+  valor) │                  │                  │                 │
+─────────┼──────────────────┼──────────────────┼─────────────────┤
+    B    │ EOQ padrão       │ ROP dinâmico     │ Safety stock    │
+ (médio) │                  │                  │ conservador     │
+─────────┼──────────────────┼──────────────────┼─────────────────┤
+    C    │ Lote grande      │ Revisão periódica│ Stock mínimo    │
+ (baixo) │ Baixa atenção    │                  │ ou eliminar     │
+─────────┴──────────────────┴──────────────────┴─────────────────┘
+```
+
+### Previsão de Procura (Forecasting)
+
+#### Métodos Estatísticos
+
+**1. Média Móvel Simples**
+```
+F_t = (Y_{t-1} + Y_{t-2} + ... + Y_{t-n}) / n
+
+Exemplo (n=3):
+  Meses: 100, 110, 105, 120, ?
+  F_5 = (105 + 110 + 120) / 3 = 111.7
+```
+
+**2. Suavização Exponencial Simples**
+```
+F_t = α × Y_{t-1} + (1-α) × F_{t-1}
+
+Onde α ∈ [0,1] é o fator de suavização
+
+α alto (~0.8): reage rápido a mudanças
+α baixo (~0.2): mais suave, menos reativo
+
+Exemplo (α=0.3):
+  Y_1=100, F_1=100
+  Y_2=110 → F_2 = 0.3×110 + 0.7×100 = 103
+  Y_3=105 → F_3 = 0.3×105 + 0.7×103 = 103.6
+```
+
+**3. Holt-Winters (com Tendência e Sazonalidade)**
+```
+Nível:     L_t = α(Y_t/S_{t-m}) + (1-α)(L_{t-1} + T_{t-1})
+Tendência: T_t = β(L_t - L_{t-1}) + (1-β)T_{t-1}
+Sazonal:   S_t = γ(Y_t/L_t) + (1-γ)S_{t-m}
+
+Previsão:  F_{t+h} = (L_t + h×T_t) × S_{t+h-m}
+```
+
+#### ARIMA
+
+```
+ARIMA(p,d,q) onde:
+  p = ordem auto-regressiva (AR)
+  d = ordem de diferenciação
+  q = ordem média móvel (MA)
+
+Modelo:
+  (1 - φ₁B - φ₂B² - ... - φₚBᵖ)(1-B)ᵈ Y_t = 
+  (1 + θ₁B + θ₂B² + ... + θ_qBᵍ) ε_t
+
+Onde B é o operador de atraso: BY_t = Y_{t-1}
+
+Seleção de parâmetros:
+  - ACF (autocorrelação) → sugere q
+  - PACF (parcial) → sugere p
+  - AIC/BIC → comparar modelos
+```
+
+### Simulação Monte Carlo para Risco
+
+#### Conceito
+
+Quando ROP e Safety Stock são estimativas, qual a **probabilidade real** de ruptura?
+
+Monte Carlo simula milhares de cenários e conta quantos resultam em ruptura.
+
+#### Algoritmo
+
+```
+PARA cada simulação i = 1 até N (ex: 10000):
+    1. Amostrar consumo diário ~ Normal(μ_d, σ_d)
+    2. Amostrar lead time ~ Normal(LT, σ_LT)
+    3. Simular stock ao longo de 30 dias
+    4. SE stock < 0 em algum momento:
+          ruptura[i] = 1
+       SENÃO:
+          ruptura[i] = 0
+
+Probabilidade de ruptura = Σ ruptura / N
+```
+
+#### Exemplo
+
+```
+Parâmetros:
+  Stock inicial = 800 unidades
+  μ_d = 100, σ_d = 20
+  ROP = 787 (do exemplo anterior)
+  
+Resultado após 10000 simulações:
+  Rupturas observadas: 512
+  P(ruptura|30 dias) = 512/10000 = 5.12%
+  
+Validação: nível de serviço 95% → ~5% ruptura ✓
+```
+
+---
+
 # 7️⃣ MÓDULO QUALITY
 
 ## 7.1 Prevention Guard
@@ -658,6 +2366,388 @@ class DefectPredictor(nn.Module):
 - Documentation checks
 - Material compatibility
 - Tool availability
+
+---
+
+## 7.2 TEORIA COMPLETA DE QUALIDADE INDUSTRIAL (Para Leitores Externos)
+
+### O Que É Qualidade Industrial?
+
+Qualidade industrial não é apenas "zero defeitos". É garantir que:
+1. **Produtos** cumprem especificações
+2. **Processos** são estáveis e previsíveis
+3. **Decisões** são baseadas em dados, não intuição
+
+### Signal-to-Noise Ratio (SNR)
+
+#### Conceito Fundamental
+
+```
+SNR mede a qualidade dos dados de processo.
+
+        Sinal (informação útil)
+SNR = ─────────────────────────
+        Ruído (variação inútil)
+
+Alto SNR → Dados fiáveis → Boas decisões
+Baixo SNR → Dados ruidosos → Decisões erradas
+```
+
+#### Formulação Matemática
+
+```
+Para uma série temporal X = [x₁, x₂, ..., xₙ]:
+
+1. SINAL: Tendência ou média móvel
+   μ̂(t) = (1/w) × Σᵢ₌₀^(w-1) x(t-i)    [média móvel de janela w]
+
+2. RUÍDO: Resíduos após remover sinal
+   ε(t) = x(t) - μ̂(t)
+
+3. SNR em dB:
+   SNR_dB = 10 × log₁₀(σ²_sinal / σ²_ruído)
+   
+   Onde:
+   σ²_sinal = Var(μ̂)     # Variância do sinal
+   σ²_ruído = Var(ε)     # Variância do ruído
+```
+
+#### Exemplo Numérico
+
+```
+Dados de temperatura de um forno (30 leituras):
+
+  Leitura (°C): [200, 198, 201, 199, 202, 198, ...]
+  
+  Média global: μ = 200°C
+  Variância total: σ² = 4 (°C)²
+  
+Aplicando média móvel (janela = 5):
+  Sinal suavizado: [199.8, 200.0, 200.2, 199.6, ...]
+  σ²_sinal = 1.2 (°C)²
+  
+  Resíduos: [0.2, -2.0, 0.8, -0.6, ...]
+  σ²_ruído = 2.8 (°C)²
+  
+SNR = 10 × log₁₀(1.2 / 2.8)
+    = 10 × log₁₀(0.43)
+    = 10 × (-0.37)
+    = -3.7 dB
+
+Interpretação:
+  SNR < 0 dB → Ruído domina o sinal → Dados de baixa qualidade!
+  Ação: Verificar sensor, reduzir vibração, filtrar melhor
+```
+
+#### Classificação SNR
+
+```
+┌─────────────────┬────────────┬──────────────────────────────────┐
+│   SNR (dB)      │   Classe   │   Interpretação                  │
+├─────────────────┼────────────┼──────────────────────────────────┤
+│   > 20          │   ALTO     │   Excelente qualidade de dados   │
+│   10 a 20       │   MÉDIO    │   Boa qualidade, usar com cuidado│
+│   0 a 10        │   BAIXO    │   Qualidade marginal             │
+│   < 0           │   CRÍTICO  │   Ruído domina - não confiar     │
+└─────────────────┴────────────┴──────────────────────────────────┘
+```
+
+### OEE: Overall Equipment Effectiveness
+
+#### Os 3 Componentes
+
+```
+OEE = Disponibilidade × Performance × Qualidade
+
+┌────────────────────────────────────────────────────────────────┐
+│                                                                │
+│  1. DISPONIBILIDADE                                            │
+│     = Tempo de Operação / Tempo Planeado                       │
+│                                                                │
+│     Perdas: Avarias, setups, ajustes, falta de material        │
+│                                                                │
+├────────────────────────────────────────────────────────────────┤
+│                                                                │
+│  2. PERFORMANCE                                                │
+│     = (Tempo de Ciclo Ideal × Peças Produzidas) / Tempo Op.    │
+│                                                                │
+│     Perdas: Pequenas paragens, velocidade reduzida             │
+│                                                                │
+├────────────────────────────────────────────────────────────────┤
+│                                                                │
+│  3. QUALIDADE                                                  │
+│     = Peças Boas / Total de Peças                              │
+│                                                                │
+│     Perdas: Defeitos, retrabalho, peças startup                │
+│                                                                │
+└────────────────────────────────────────────────────────────────┘
+```
+
+#### Formulação Detalhada
+
+```
+DISPONIBILIDADE:
+  A = (Tempo Planeado - Tempo Parado) / Tempo Planeado
+  
+  Exemplo:
+    Turno = 8h = 480 min
+    Setup = 30 min
+    Avaria = 20 min
+    A = (480 - 30 - 20) / 480 = 430/480 = 89.6%
+
+PERFORMANCE:
+  P = (Tempo Ciclo Ideal × Unidades) / Tempo Operação
+  
+  Exemplo:
+    Tempo ciclo ideal = 1 min/peça
+    Produzidas = 400 peças
+    Tempo operação = 430 min
+    P = (1 × 400) / 430 = 93.0%
+
+QUALIDADE:
+  Q = Peças Boas / Total Produzido
+  
+  Exemplo:
+    Produzidas = 400
+    Defeitos = 8
+    Q = 392 / 400 = 98.0%
+
+OEE FINAL:
+  OEE = A × P × Q
+      = 0.896 × 0.930 × 0.980
+      = 81.6%
+
+Benchmarks:
+  OEE > 85%: World Class
+  OEE 60-85%: Típico
+  OEE < 60%: Oportunidade de melhoria
+```
+
+#### Análise das 6 Grandes Perdas
+
+```
+┌──────────────┬─────────────────────────────────────────────────┐
+│  COMPONENTE  │  PERDAS                                         │
+├──────────────┼─────────────────────────────────────────────────┤
+│              │  1. Avarias de equipamento                      │
+│ DISPONIBILID.│  2. Setup e ajustes                             │
+├──────────────┼─────────────────────────────────────────────────┤
+│              │  3. Pequenas paragens e inatividade             │
+│ PERFORMANCE  │  4. Velocidade reduzida                         │
+├──────────────┼─────────────────────────────────────────────────┤
+│              │  5. Defeitos de processo                        │
+│ QUALIDADE    │  6. Perdas de startup                           │
+└──────────────┴─────────────────────────────────────────────────┘
+
+Waterfall de Perdas (exemplo):
+
+  Tempo Total Planeado:  480 min (100%)
+  - Avarias:             -20 min
+  - Setups:              -30 min
+  ──────────────────────────────────
+  Tempo Operação:        430 min (89.6%)
+  
+  Produção Teórica @1min/peça: 430 peças
+  - Micro-paragens:      -15 peças equiv.
+  - Velocidade reduzida: -15 peças equiv.
+  ──────────────────────────────────
+  Produção Real:         400 peças (93.0%)
+  
+  - Defeitos:            -8 peças
+  ──────────────────────────────────
+  Peças Boas:            392 peças (98.0%)
+  
+  OEE = 392/480 teóricas = 81.6% ✓
+```
+
+### Validação de Dados de Produção
+
+#### Tipos de Validação
+
+```
+1. VALIDAÇÃO SINTÁTICA
+   - Formatos corretos (datas, números)
+   - Campos obrigatórios preenchidos
+   - Valores dentro de ranges aceitáveis
+
+2. VALIDAÇÃO SEMÂNTICA
+   - Consistência entre campos relacionados
+   - Ordem temporal correta
+   - Referências válidas (SKU existe, máquina existe)
+
+3. VALIDAÇÃO DE QUALIDADE
+   - Completude (% campos preenchidos)
+   - Atualidade (idade dos dados)
+   - Precisão (# casas decimais, resolução)
+   - Consistência (mesmos valores = mesma coisa)
+```
+
+#### Regras de Validação (Prevention Guard)
+
+```python
+# Exemplo de regras implementadas:
+
+class ValidationRule:
+    """Uma regra de validação."""
+    
+    RULES = {
+        "BOM_COMPLETE": {
+            "desc": "BOM deve ter todos componentes",
+            "severity": "ERROR",
+            "check": lambda bom: len(bom.components) > 0
+        },
+        "ROUTING_VALID": {
+            "desc": "Routing deve ter operações sequenciadas",
+            "severity": "ERROR", 
+            "check": lambda r: all(r.ops[i].seq < r.ops[i+1].seq 
+                                  for i in range(len(r.ops)-1))
+        },
+        "CYCLE_TIME_POSITIVE": {
+            "desc": "Tempo de ciclo deve ser > 0",
+            "severity": "WARNING",
+            "check": lambda op: op.cycle_time > 0
+        },
+        "MACHINE_EXISTS": {
+            "desc": "Máquina referenciada deve existir",
+            "severity": "ERROR",
+            "check": lambda op, machines: op.machine_id in machines
+        }
+    }
+```
+
+#### Score de Qualidade de Dados
+
+```
+SCORE = Σᵢ (Peso_i × PassRate_i) / Σᵢ Peso_i
+
+Onde:
+  Peso_i = Importância da regra i
+  PassRate_i = % registos que passam regra i
+
+Exemplo:
+┌─────────────────────┬───────┬──────────┬─────────────┐
+│       Regra         │ Peso  │ PassRate │ Contribuição│
+├─────────────────────┼───────┼──────────┼─────────────┤
+│ BOM completo        │  3    │  95%     │ 2.85        │
+│ Routing válido      │  3    │  98%     │ 2.94        │
+│ Cycle time > 0      │  2    │  100%    │ 2.00        │
+│ Datas consistentes  │  2    │  90%     │ 1.80        │
+│ Máquina existe      │  3    │  100%    │ 3.00        │
+├─────────────────────┼───────┼──────────┼─────────────┤
+│ TOTAL               │  13   │          │ 12.59       │
+└─────────────────────┴───────┴──────────┴─────────────┘
+
+SCORE = 12.59 / 13 = 96.8%
+```
+
+### Predição de Defeitos
+
+#### Modelo Neural (DefectPredictor)
+
+```
+Arquitectura:
+  Input: [temperatura, pressão, velocidade, humidade, operador_exp, ...]
+  
+  Hidden 1: 32 neurónios + ReLU + Dropout(0.2)
+  Hidden 2: 16 neurónios + ReLU
+  Output: 1 neurónio + Sigmoid → P(defeito)
+
+Treino:
+  Loss: Binary Cross-Entropy
+  BCE = -[y×log(ŷ) + (1-y)×log(1-ŷ)]
+  
+  Optimizer: Adam (lr=0.001)
+  Early stopping: patience=10
+```
+
+#### Features Típicas
+
+```
+Features de Processo:
+  - Temperatura (°C)
+  - Pressão (bar)
+  - Velocidade (rpm)
+  - Humidade (%)
+  - Tempo de ciclo actual vs nominal
+
+Features de Contexto:
+  - Turno (manhã/tarde/noite)
+  - Dia da semana
+  - Experiência do operador (anos)
+  - Horas desde última manutenção
+  - Idade da ferramenta/molde
+
+Features Derivadas:
+  - Desvio de parâmetros vs golden run
+  - Média móvel de defeitos recentes
+  - Volatilidade de parâmetros
+```
+
+#### Interpretação de Resultados
+
+```
+Output do modelo: P(defeito) = 0.72
+
+Interpretação:
+  > 0.8 → ALTO RISCO: Parar e verificar
+  0.5-0.8 → MÉDIO RISCO: Aumentar inspecção
+  < 0.5 → BAIXO RISCO: Operação normal
+
+Acções automáticas (Poka-Yoke digital):
+  Se P(defeito) > 0.7:
+    - Alertar operador
+    - Ajustar parâmetros automaticamente (se possível)
+    - Registar para análise posterior
+```
+
+### Poka-Yoke Digital
+
+#### Conceito
+
+```
+Poka-Yoke = "À prova de erro" (japonês)
+
+Tradicional:
+  - Peças só encaixam na posição correta
+  - Sensores impedem avanço se peça mal colocada
+
+Digital (Prevention Guard):
+  - Validação automática antes de iniciar produção
+  - Alertas se parâmetros fora de controlo
+  - Bloqueio soft/hard de operações arriscadas
+```
+
+#### Implementação
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│                    PREVENTION GUARD FLOW                        │
+├────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   ANTES DA PRODUÇÃO                                             │
+│   ─────────────────                                             │
+│   1. Validar BOM completo                                       │
+│   2. Verificar disponibilidade de materiais                     │
+│   3. Confirmar routing válido                                   │
+│   4. Checar calibração de instrumentos                          │
+│   5. Verificar qualificação do operador                         │
+│                                                                 │
+│   DURANTE A PRODUÇÃO                                            │
+│   ──────────────────                                            │
+│   1. Monitorar parâmetros vs limites                            │
+│   2. Predição contínua de defeitos (ML)                         │
+│   3. Alertas em tempo real                                      │
+│   4. Ajustes automáticos (closed-loop)                          │
+│                                                                 │
+│   APÓS A PRODUÇÃO                                               │
+│   ─────────────────                                             │
+│   1. Validar contagens e lotes                                  │
+│   2. Registar métricas de qualidade                             │
+│   3. Actualizar modelos preditivos                              │
+│   4. Gerar relatório de turno                                   │
+│                                                                 │
+└────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
@@ -701,6 +2791,369 @@ Double ML:
   Stage 1: Fit g(X) for E[Y|X] and m(X) for E[T|X]
   Stage 2: Fit τ on residuals
   τ = E[(Y - g(X)) / (T - m(X))]
+```
+
+---
+
+## 8.3 TEORIA COMPLETA DE ANÁLISE CAUSAL (Para Leitores Externos)
+
+### Correlação vs Causalidade
+
+#### O Problema Fundamental
+
+"Vendas de gelados" correlaciona com "afogamentos na praia".
+Significa que gelados causam afogamentos? **NÃO!**
+
+Ambos são causados pelo **calor** (confounder).
+
+```
+        Calor
+       ╱     ╲
+      ↓       ↓
+  Gelados   Afogamentos
+      ↘       ↙
+     Correlação (espúria)
+```
+
+#### Por Que Importa na Indústria?
+
+Perguntas causais:
+- "Se aumentarmos a temperatura do molde, reduzimos defeitos?"
+- "A nova manutenção preventiva realmente reduziu paragens?"
+- "O treino do operador melhorou a qualidade?"
+
+Sem causalidade, podemos tomar decisões erradas!
+
+### Grafos Causais
+
+#### Notação
+
+```
+A → B : "A causa B"
+
+Tipos de relações:
+  - A → B : A causa diretamente B
+  - A → C → B : A causa B indiretamente (via C)
+  - A ← C → B : C é confounder de A e B
+  - A → C ← B : C é collider de A e B
+```
+
+#### Exemplo: Produção Industrial
+
+```
+                  ┌───────────────┐
+                  │  TEMPERATURA  │
+                  │   do Molde    │
+                  └───────┬───────┘
+                          │
+          ┌───────────────┼───────────────┐
+          ↓               ↓               ↓
+    ┌───────────┐   ┌───────────┐   ┌───────────┐
+    │ TEMPO DE  │   │ DEFEITOS  │   │ ENERGIA   │
+    │   CICLO   │   │   (Y)     │   │ CONSUMIDA │
+    └─────┬─────┘   └───────────┘   └───────────┘
+          │               ↑
+          └───────────────┘
+          Também afeta defeitos
+
+Confounder:
+  - OPERADOR afeta tanto VELOCIDADE como DEFEITOS
+  - Se ignorarmos, podemos atribuir defeitos à velocidade erradamente
+```
+
+#### Identificação de Efeitos Causais
+
+```
+Critério de Backdoor:
+  Para estimar efeito de T em Y, bloquear todos os caminhos
+  "backdoor" (que entram em T por uma seta).
+  
+  T → Y        (efeito direto - queremos estimar)
+  T ← C → Y    (backdoor via confounder C - bloquear!)
+  
+  Solução: Condicionar em C (controlar por C)
+```
+
+### Average Treatment Effect (ATE)
+
+#### Definição Formal
+
+```
+Y(1) = Outcome se tratamento aplicado
+Y(0) = Outcome se tratamento NÃO aplicado
+
+ATE = E[Y(1)] - E[Y(0)]
+      ─────────────────
+      Efeito médio do tratamento
+
+Problema:
+  Nunca observamos Y(1) e Y(0) para a mesma unidade!
+  (Não podemos voltar no tempo)
+```
+
+#### Exemplo Industrial
+
+```
+Tratamento (T): Nova manutenção preventiva (1=sim, 0=não)
+Outcome (Y): Horas de paragem no mês
+
+Observações:
+  Máquina A: T=1, Y=5h
+  Máquina B: T=0, Y=12h
+  Máquina C: T=1, Y=8h
+  Máquina D: T=0, Y=15h
+
+Estimativa ingénua:
+  ATE = E[Y|T=1] - E[Y|T=0]
+      = (5+8)/2 - (12+15)/2
+      = 6.5 - 13.5
+      = -7 horas
+
+Interpretação: A manutenção reduz 7h de paragem em média
+MAS: Será que as máquinas com T=1 são diferentes? (confounding)
+```
+
+### OLS Estimator
+
+#### Modelo
+
+```
+Y = α + τT + βX + ε
+
+Onde:
+  Y = outcome
+  T = tratamento (0 ou 1)
+  X = confounders (covariáveis)
+  τ = efeito causal do tratamento (ATE)
+  ε = erro aleatório
+```
+
+#### Derivação
+
+```
+Usando mínimos quadrados:
+
+τ̂ = [Σᵢ(Tᵢ - T̄)(Yᵢ - Ŷᵢ)] / [Σᵢ(Tᵢ - T̄)²]
+
+Onde Ŷᵢ = α̂ + β̂Xᵢ (previsão sem tratamento)
+
+Equivalente matricial:
+  [τ̂, β̂]ᵀ = (Z'Z)⁻¹ Z'Y
+  Onde Z = [T, X]
+```
+
+#### Limitações
+
+```
+1. Confounders omitidos → Viés
+   Se existe C que afeta T e Y, mas não incluímos:
+   τ̂ estimará τ + efeito de C
+
+2. Linearidade
+   Assume relação linear entre X e Y
+   
+3. Homogeneidade
+   Assume efeito igual para todos (sem heterogeneidade)
+```
+
+### Double Machine Learning (DML)
+
+#### Motivação
+
+OLS requer:
+- Especificar forma funcional (linear)
+- Incluir todos os confounders corretamente
+
+DML usa ML para modelar relações complexas.
+
+#### Algoritmo
+
+```
+STAGE 1: Nuisance Functions
+  
+  a) Treinar modelo para Y dado X:
+     ĝ(X) = ML_model.fit(X, Y).predict(X)
+     
+  b) Treinar modelo para T dado X:
+     m̂(X) = ML_model.fit(X, T).predict(X)
+     
+  c) Calcular resíduos:
+     Ỹ = Y - ĝ(X)    # Y "limpo" de confounders
+     T̃ = T - m̂(X)    # T "limpo" de confounders
+
+STAGE 2: Causal Estimation
+
+  Estimar τ por regressão dos resíduos:
+  
+  τ̂ = Σ(T̃ᵢ × Ỹᵢ) / Σ(T̃ᵢ²)
+```
+
+#### Por Que Funciona?
+
+```
+Intuição:
+  - Ỹ = parte de Y não explicada por X
+  - T̃ = parte de T não explicada por X (variação "exógena")
+  
+  Se X captura todos os confounders:
+  - Ỹ = τT + ε (apenas efeito causal + ruído)
+  - T̃ = variação aleatória de T
+  
+  Logo: regredindo Ỹ em T̃, obtemos τ limpo de confounding
+```
+
+#### Cross-Fitting (Evitar Overfitting)
+
+```
+Dividir dados em K folds:
+
+PARA cada fold k:
+  1. Treinar ĝ e m̂ nos outros K-1 folds
+  2. Predizer resíduos para fold k
+  
+Combinar resíduos de todos os folds
+Estimar τ no dataset completo de resíduos
+```
+
+#### Exemplo Numérico
+
+```
+Dados:
+  X = [idade_máquina, tipo_operador, turno]
+  T = nova_manutenção (0/1)
+  Y = horas_paragem
+
+Modelo ML: Random Forest
+
+Stage 1:
+  ĝ(X) = RF.fit(X, Y)      # RMSE = 2.1
+  m̂(X) = RF.fit(X, T)      # AUC = 0.85
+  
+  Ỹ = Y - ĝ(X)             # Resíduos de Y
+  T̃ = T - m̂(X)             # Resíduos de T
+
+Stage 2:
+  τ̂ = Σ(T̃ × Ỹ) / Σ(T̃²)
+    = -892 / 156
+    = -5.7 horas
+
+Intervalo de confiança (bootstrap):
+  τ ∈ [-7.2, -4.3] (95% CI)
+
+Interpretação:
+  A nova manutenção reduz 5.7 horas de paragem (CI: 4.3-7.2h)
+```
+
+### CEVAE: Causal Effect VAE (R&D)
+
+#### Arquitetura
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        CEVAE ARCHITECTURE                        │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│                         ┌───────────┐                           │
+│                         │     Z     │ ← Variável latente        │
+│                         │  (proxy   │   (proxy para confounder) │
+│                         │   for C)  │                           │
+│                         └─────┬─────┘                           │
+│                    ┌──────────┴──────────┐                      │
+│                    ↓                     ↓                      │
+│              ┌───────────┐         ┌───────────┐                │
+│      X ──────│ Encoder   │         │ Decoder   │────── X̂        │
+│      T ──────│ q(z|x,t,y)│         │ p(x|z)    │                │
+│      Y ──────│           │         │ p(y|z,t)  │────── Ŷ        │
+│              └───────────┘         │ p(t|z)    │────── T̂        │
+│                                    └───────────┘                │
+│                                                                 │
+│  Loss = Reconstruction(x,t,y) + KL(q(z|x,t,y) || p(z))          │
+│                                                                 │
+│  Efeito causal:                                                 │
+│    ITE(x) = E_z[Y(1)|x] - E_z[Y(0)|x]                           │
+│    ATE = E_x[ITE(x)]                                            │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### Por Que Funciona?
+
+```
+Ideia chave:
+  Z é uma representação latente que captura confounders ocultos.
+  
+Se treinarmos o modelo para:
+  1. Reconstruir X a partir de Z
+  2. Prever T a partir de Z
+  3. Prever Y a partir de (Z, T)
+
+Então Z deve capturar a informação que conecta X, T e Y.
+Isto inclui confounders!
+
+Com Z estimado, podemos:
+  - Fixar Z
+  - Variar T de 0 para 1
+  - Calcular mudança em Y = efeito causal
+```
+
+#### Limitações (Status: STUB)
+
+```
+⚠️ CEVAE está implementado como STUB (NotImplementedError)
+
+Razões:
+  1. Requer muito treino (dados + épocas)
+  2. Sensível a hiperparâmetros
+  3. Validação difícil (não temos ground truth causal)
+  
+Alternativas implementadas:
+  - OLS: Simples, mas requer linearidade
+  - DML: Mais flexível, implementado com XGBoost
+```
+
+### Aplicação Industrial
+
+#### Perguntas Causais Típicas
+
+```
+1. "A nova manutenção preventiva reduziu paragens?"
+   T = manutenção preventiva
+   Y = horas de paragem
+   X = tipo máquina, idade, operador
+   
+2. "O treino do operador melhorou a qualidade?"
+   T = treino realizado
+   Y = taxa de defeitos
+   X = experiência prévia, turno, máquina
+   
+3. "A mudança de fornecedor afetou lead times?"
+   T = novo fornecedor
+   Y = lead time médio
+   X = produto, volume, sazonalidade
+```
+
+#### Workflow de Análise Causal
+
+```
+1. DEFINIR PERGUNTA
+   - Qual tratamento T?
+   - Qual outcome Y?
+   
+2. DESENHAR GRAFO CAUSAL
+   - Que variáveis afetam T?
+   - Que variáveis afetam Y?
+   - Que variáveis afetam ambos? (confounders!)
+   
+3. VERIFICAR IDENTIFICAÇÃO
+   - Critério de backdoor satisfeito?
+   - Confounders observáveis?
+   
+4. ESCOLHER ESTIMADOR
+   - OLS: Se relações lineares e poucos confounders
+   - DML: Se relações complexas
+   
+5. ESTIMAR E VALIDAR
+   - Calcular ATE com intervalo de confiança
+   - Análise de sensibilidade
 ```
 
 ---
@@ -4250,6 +6703,835 @@ class DragonnetEstimator:
 | Chat | 3 | 3 | 0 | 0 |
 | Outros | ~220 | ~215 | ~5 | 0 |
 | **TOTAL** | **~291** | **~283** | **~8** | **0** |
+
+---
+
+# 📚 APÊNDICE P: TEORIA COMPLETA DAS FUNCIONALIDADES NÃO IMPLEMENTADAS
+
+Este apêndice fornece a base teórica completa para todas as funcionalidades listadas no Apêndice D que estão parcialmente implementadas ou não implementadas. O objetivo é permitir que um leitor externo compreenda a teoria subjacente e possa eventualmente implementar estas funcionalidades.
+
+---
+
+## P.1 DEEP REINFORCEMENT LEARNING PARA SCHEDULING
+
+### P.1.1 Por Que DRL para Scheduling?
+
+O scheduling tradicional (MILP, heurísticas) funciona bem para problemas estáticos. Mas em ambientes dinâmicos:
+- Novas ordens chegam continuamente
+- Máquinas avariam inesperadamente
+- Prioridades mudam em tempo real
+
+DRL pode aprender políticas que adaptam-se a estas dinâmicas.
+
+### P.1.2 Formulação como Markov Decision Process (MDP)
+
+```
+MDP = (S, A, P, R, γ)
+
+S = Estado:
+  - Fila de jobs em cada máquina
+  - Tempo restante do job atual
+  - Due dates dos jobs pendentes
+  - Disponibilidade de recursos
+
+A = Ações:
+  - Selecionar próximo job da fila
+  - Atribuir job a máquina alternativa
+  - Adiar job
+
+P(s'|s,a) = Transição:
+  - Determinística para tempos conhecidos
+  - Estocástica para avarias/variabilidade
+
+R(s,a,s') = Recompensa:
+  - -1 por unidade de atraso (tardiness)
+  - -0.1 por setup
+  - +1 por job completado a tempo
+
+γ = Factor de desconto (0.99 típico)
+```
+
+### P.1.3 Algoritmo DQN (Deep Q-Network)
+
+```
+ARQUITECTURA:
+
+Estado s → [FC(128) → ReLU → FC(64) → ReLU → FC(|A|)] → Q(s,a)
+
+TREINO:
+
+1. Inicializar Q-network θ e target network θ⁻
+
+2. Preencher experience replay buffer:
+   - Executar política ε-greedy
+   - Guardar (s, a, r, s') no buffer
+
+3. Para cada batch:
+   - Amostrar minibatch de (s, a, r, s')
+   - Calcular target: y = r + γ × max_a' Q(s', a'; θ⁻)
+   - Minimizar Loss = (Q(s,a; θ) - y)²
+   - Actualizar θ com SGD
+
+4. Periodicamente: θ⁻ ← θ
+
+HIPERPARÂMETROS:
+  - Batch size: 32-128
+  - Buffer size: 100k-1M
+  - Learning rate: 1e-4
+  - Target update: a cada 1000 steps
+  - ε decay: 0.995 por episódio
+```
+
+### P.1.4 Algoritmo PPO (Proximal Policy Optimization)
+
+```
+PPO é mais estável que DQN para espaços de acção contínuos.
+
+ARQUITECTURA:
+
+Actor:  s → [FC → FC] → π(a|s)   (probabilidade de acções)
+Critic: s → [FC → FC] → V(s)     (valor do estado)
+
+FUNÇÃO OBJECTIVO:
+
+L^CLIP(θ) = E[ min(r_t(θ) × Â_t, clip(r_t(θ), 1-ε, 1+ε) × Â_t) ]
+
+Onde:
+  r_t(θ) = π_θ(a|s) / π_θ_old(a|s)   # ratio de probabilidades
+  Â_t = vantagem (Q(s,a) - V(s))      # quanto melhor que média
+  ε = 0.1 ou 0.2                       # clip range
+
+TREINO:
+  1. Colectar trajectórias com π_θ_old
+  2. Calcular vantagens Â_t
+  3. Optimizar L^CLIP por múltiplas épocas
+  4. Repetir
+
+VANTAGENS:
+  - Mais estável que A2C/A3C
+  - Melhor sample efficiency que TRPO
+  - Funciona bem para scheduling
+```
+
+### P.1.5 Estado da Implementação
+
+```
+ACTUAL (STUB):
+  - DRLPolicyStub: Fallback para SPT
+  - SchedulingEnvStub: Gymnasium env básico
+
+PARA IMPLEMENTAR:
+  1. Environment completo (obs/action spaces)
+  2. Experience replay buffer
+  3. Network architectures (Actor-Critic)
+  4. Training loop com stable-baselines3
+  5. Checkpoint saving/loading
+  6. Online fine-tuning
+```
+
+---
+
+## P.2 SOLVERS COMERCIAIS (GUROBI, CPLEX, HiGHS)
+
+### P.2.1 Comparação de Solvers
+
+```
+┌──────────────┬─────────────────────┬──────────────────────┐
+│    Solver    │  Tipo               │  Licença             │
+├──────────────┼─────────────────────┼──────────────────────┤
+│ OR-Tools CBC │  Open-source        │  Apache 2.0 ✅       │
+│ OR-Tools SCIP│  Open-source        │  Apache/ZIB ✅       │
+│ HiGHS        │  Open-source        │  MIT ✅              │
+│ Gurobi       │  Comercial          │  Pago $$$            │
+│ CPLEX        │  Comercial          │  Pago $$$            │
+└──────────────┴─────────────────────┴──────────────────────┘
+
+PERFORMANCE (problemas típicos):
+
+  Gurobi > CPLEX > SCIP > CBC > HiGHS (para MILP)
+  
+  Mas: Para muitos problemas industriais, CBC/SCIP são suficientes!
+```
+
+### P.2.2 Interface Gurobi (Teoria)
+
+```python
+# Exemplo de interface para Gurobi
+
+import gurobipy as gp
+from gurobipy import GRB
+
+def solve_jobshop_gurobi(jobs, machines, processing_times, due_dates):
+    """
+    Solve Job Shop com Gurobi.
+    
+    Variáveis:
+      x[j,m,t] ∈ {0,1}: job j em máquina m começa no tempo t
+      C_max: makespan
+      
+    Objectivo:
+      min C_max
+      
+    Restrições:
+      1. Cada job processa uma vez em cada máquina
+      2. Precedências de operações
+      3. Sem sobreposição na mesma máquina
+      4. C_max >= completion time de todos os jobs
+    """
+    
+    model = gp.Model("JobShop")
+    
+    # Variáveis
+    x = {}
+    for j in jobs:
+        for m in machines:
+            for t in range(horizon):
+                x[j,m,t] = model.addVar(vtype=GRB.BINARY)
+    
+    C_max = model.addVar(name="makespan")
+    
+    # Objectivo
+    model.setObjective(C_max, GRB.MINIMIZE)
+    
+    # Restrições (ver secção 2.3 do documento principal)
+    # ...
+    
+    model.optimize()
+    
+    return model.ObjVal, extract_schedule(x)
+```
+
+### P.2.3 Porque Não Implementado
+
+```
+Razões:
+1. Custo de licença Gurobi/CPLEX
+2. OR-Tools CBC/SCIP cobrem >90% dos casos
+3. Complexidade de instalação (binários nativos)
+4. Foco em soluções open-source (on-prem)
+
+Quando Implementar:
+- Problemas muito grandes (>10.000 variáveis)
+- Tempo limite muito curto (<1 segundo)
+- Cliente tem licença existente
+```
+
+---
+
+## P.3 MODELOS DE FORECASTING AVANÇADOS
+
+### P.3.1 N-BEATS (Neural Basis Expansion)
+
+```
+ARQUITECTURA:
+
+Input: [y_{t-L}, ..., y_{t-1}]  # lookback window
+
+STACK 1 (Trend):
+  Block 1: FC → ReLU → FC → θ_b, θ_f
+           Backcast: θ_b × basis_trend
+           Forecast: θ_f × basis_trend
+           
+  Block 2: (residual) → ...
+
+STACK 2 (Seasonality):
+  Similar, com basis Fourier
+
+STACK 3 (Generic):
+  Learned basis (fully connected)
+
+Output: Soma dos forecasts de todos os stacks
+
+FORMULAÇÃO MATEMÁTICA:
+
+Para cada bloco l:
+  h_l = FC_2(ReLU(FC_1(x_l)))
+  θ_b^l, θ_f^l = Linear(h_l)
+  
+  backcast_l = Σ_i θ_b^l_i × g_i(t)    # g = basis functions
+  forecast_l = Σ_i θ_f^l_i × g_i(t+h)
+  
+  x_{l+1} = x_l - backcast_l           # residual connection
+
+Final: ŷ = Σ_l forecast_l
+
+INTERPRETABILIDADE:
+  - Trend stack: Extrai tendência
+  - Seasonality stack: Extrai padrões sazonais
+  - Residual explicável por stack
+```
+
+### P.3.2 Non-Stationary Transformer (NST)
+
+```
+PROBLEMA:
+  Transformers assumem dados estacionários.
+  Séries temporais têm mudanças de distribuição ao longo do tempo.
+
+SOLUÇÃO NST:
+
+1. Series Decomposition:
+   trend_t = MovingAvg(x_t)
+   seasonal_t = x_t - trend_t
+   
+2. De-stationary Attention:
+   
+   Q, K, V = Linear(x)
+   
+   # Normalizar por estatísticas locais
+   μ_Q = mean(Q, dim=time)
+   σ_Q = std(Q, dim=time)
+   Q̃ = (Q - μ_Q) / σ_Q
+   
+   # Atenção normalizada
+   A = softmax(Q̃ × K̃ᵀ / √d)
+   
+   # Re-aplicar estatísticas
+   out = A × Ṽ × σ_V + μ_V
+
+3. Series-wise Connection:
+   Preserva estatísticas originais através das camadas.
+
+VANTAGEM:
+  Melhor generalização para séries com drift/mudança de regime.
+```
+
+### P.3.3 D-LINEAR (Decomposition Linear)
+
+```
+SURPRESA: Modelos lineares podem superar Transformers!
+
+ARQUITECTURA SIMPLES:
+
+1. Decompor série:
+   trend = MovingAvg(x)
+   seasonal = x - trend
+
+2. Projecção linear:
+   trend_pred = W_t × trend        # matriz de pesos
+   seasonal_pred = W_s × seasonal
+
+3. Recompor:
+   ŷ = trend_pred + seasonal_pred
+
+PORQUE FUNCIONA:
+
+- Séries temporais têm estrutura linear forte
+- Transformers sobre-ajustam padrões espúrios
+- Menos parâmetros = menos overfitting
+
+IMPLEMENTAÇÃO (trivial):
+
+class DLinear(nn.Module):
+    def __init__(self, lookback, horizon):
+        self.kernel_size = 25  # para moving average
+        self.W_t = nn.Linear(lookback, horizon)
+        self.W_s = nn.Linear(lookback, horizon)
+    
+    def forward(self, x):
+        trend = moving_avg(x, self.kernel_size)
+        seasonal = x - trend
+        return self.W_t(trend) + self.W_s(seasonal)
+```
+
+### P.3.4 Ensemble de Modelos
+
+```
+ESTRATÉGIAS:
+
+1. MÉDIA SIMPLES:
+   ŷ_ens = (ŷ_ARIMA + ŷ_Prophet + ŷ_XGBoost) / 3
+
+2. MÉDIA PONDERADA (por performance histórica):
+   ŷ_ens = Σ_m w_m × ŷ_m
+   Onde w_m ∝ 1/RMSE_m
+
+3. STACKING:
+   Meta-modelo aprende a combinar:
+   ŷ_ens = MetaModel([ŷ_ARIMA, ŷ_Prophet, ŷ_XGBoost, features])
+
+4. SELECTION (per-series):
+   Escolher melhor modelo para cada SKU individualmente.
+
+IMPLEMENTAÇÃO:
+
+class EnsembleForecaster:
+    def __init__(self, models):
+        self.models = models
+        self.weights = None
+    
+    def fit(self, data, validation_size=0.2):
+        # Treinar cada modelo
+        for m in self.models:
+            m.fit(data[:-validation_size])
+        
+        # Calcular pesos por performance
+        val = data[-validation_size:]
+        errors = [rmse(m.predict(len(val)), val) for m in self.models]
+        self.weights = [1/e for e in errors]
+        self.weights = normalize(self.weights)
+    
+    def predict(self, horizon):
+        preds = [m.predict(horizon) for m in self.models]
+        return sum(w * p for w, p in zip(self.weights, preds))
+```
+
+---
+
+## P.4 CAUSAL DEEP LEARNING (CEVAE, TARNet, DragonNet)
+
+### P.4.1 TARNet (Treatment-Agnostic Representation Network)
+
+```
+ARQUITECTURA:
+
+          x (features)
+              │
+        ┌─────┴─────┐
+        │  Shared   │  ← Representação comum
+        │  Network  │     Φ(x)
+        └─────┬─────┘
+              │
+     ┌────────┴────────┐
+     │                 │
+┌────┴────┐       ┌────┴────┐
+│ Head T=0 │       │ Head T=1 │  ← Heads específicos
+│   h₀(·)  │       │   h₁(·)  │     por tratamento
+└────┬────┘       └────┬────┘
+     │                 │
+   μ₀(x)             μ₁(x)         Predições Y₀, Y₁
+
+TREINO:
+
+Loss = Σᵢ [ (Yᵢ - μ_Tᵢ(xᵢ))² ]
+
+Usar apenas a head correspondente ao tratamento observado.
+
+INFERÊNCIA:
+
+ITE(x) = μ₁(x) - μ₀(x)
+ATE = E[ITE(x)]
+
+INTUIÇÃO:
+  Shared network aprende representação relevante para outcome.
+  Heads especializados aprendem resposta específica por grupo.
+```
+
+### P.4.2 DragonNet
+
+```
+MELHORIA SOBRE TARNET:
+
+Adicionar head para propensity score!
+
+          x (features)
+              │
+        ┌─────┴─────┐
+        │  Shared   │
+        │  Network  │
+        └─────┬─────┘
+              │
+   ┌──────────┼──────────┐
+   │          │          │
+┌──┴──┐   ┌──┴──┐   ┌──┴──┐
+│Head0│   │Head1│   │Prop │ ← Propensity head
+│μ₀(x)│   │μ₁(x)│   │ê(x) │    prediz P(T=1|x)
+└─────┘   └─────┘   └─────┘
+
+LOSS:
+
+L = L_outcome + α × L_propensity
+
+L_outcome = Σᵢ (Yᵢ - μ_Tᵢ(xᵢ))²
+L_propensity = Σᵢ CrossEntropy(Tᵢ, ê(xᵢ))
+
+PORQUE FUNCIONA:
+
+Forçar o network a predizer tratamento encoraja:
+  - Representações que capturam confounders
+  - Melhor balanceamento entre grupos T=0 e T=1
+  - Estimativas mais robustas
+```
+
+### P.4.3 CEVAE (Causal Effect Variational Autoencoder)
+
+```
+MOTIVAÇÃO:
+
+E se existem confounders NÃO OBSERVADOS?
+
+CEVAE assume um modelo generativo latente:
+
+  Z → X    (features geradas por latente)
+  Z → T    (tratamento influenciado por latente)
+  Z,T → Y  (outcome depende de latente e tratamento)
+
+ARQUITECTURA:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                         │
+│   ENCODER: q(z|x,t,y)                                   │
+│   ────────────────────                                  │
+│   [x,t,y] → FC → FC → [μ_z, σ_z]                        │
+│   z ~ N(μ_z, σ_z²)                                      │
+│                                                         │
+│   DECODER:                                              │
+│   ────────                                              │
+│   p(x|z): z → FC → x̂                                   │
+│   p(t|z): z → FC → Bernoulli(t)                         │
+│   p(y|z,t): [z,t] → FC → ŷ                              │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+
+LOSS (ELBO):
+
+L = E_q[log p(x,t,y|z)] - KL(q(z|x,t,y) || p(z))
+
+  = E_q[log p(x|z) + log p(t|z) + log p(y|z,t)]
+    - KL(q(z|x,t,y) || N(0,I))
+
+EFEITO CAUSAL:
+
+Para estimar ITE(xᵢ):
+  1. Inferir z ~ q(z|xᵢ, Tᵢ, Yᵢ)
+  2. Calcular ŷ₀ = p(y|z, T=0)
+  3. Calcular ŷ₁ = p(y|z, T=1)
+  4. ITE = ŷ₁ - ŷ₀
+
+LIMITAÇÕES:
+  - Assume modelo generativo correto
+  - Treino instável (VAEs)
+  - Requer muitos dados
+```
+
+### P.4.4 Porque Não Implementados
+
+```
+Razões para STUB:
+
+1. COMPLEXIDADE DE TREINO
+   - VAEs são instáveis
+   - Requerem hyperparameter tuning extensivo
+   
+2. VALIDAÇÃO DIFÍCIL
+   - Não temos "ground truth" causal
+   - Difícil saber se estimativa está correcta
+   
+3. ALTERNATIVAS MAIS SIMPLES
+   - OLS funciona se confounders conhecidos
+   - DML com XGBoost é robusto
+   
+4. PRIORIDADE
+   - Features core têm prioridade
+   - Causal deep é R&D
+   
+QUANDO IMPLEMENTAR:
+  - Quando OLS/DML não forem suficientes
+  - Com recursos para validação extensa
+  - Como upgrade de pesquisa (WP4)
+```
+
+---
+
+## P.5 REMAINING USEFUL LIFE (RUL) COM PYCOX
+
+### P.5.1 Formulação Survival Analysis
+
+```
+RUL = Tempo restante até falha
+
+MODELO SURVIVAL:
+
+S(t) = P(T > t) = Survival function
+h(t) = f(t) / S(t) = Hazard function (taxa instantânea de falha)
+
+RELAÇÃO:
+  S(t) = exp(-∫₀ᵗ h(u) du) = exp(-H(t))
+  
+  Onde H(t) = hazard acumulado
+
+RUL ESTIMADO:
+  E[RUL | sobreviveu até t₀] = ∫_{t₀}^∞ S(t)/S(t₀) dt
+```
+
+### P.5.2 DeepSurv (Cox Proportional Hazards + Deep Learning)
+
+```
+MODELO COX:
+
+h(t|x) = h₀(t) × exp(β'x)
+
+Onde:
+  h₀(t) = baseline hazard (não paramétrico)
+  exp(β'x) = risk score (multiplicador)
+
+DEEPSURV:
+
+Substituir β'x por rede neural:
+
+h(t|x) = h₀(t) × exp(f_θ(x))
+
+Onde f_θ = deep network
+
+LOSS (Partial Likelihood):
+
+L = Σᵢ δᵢ × [f_θ(xᵢ) - log(Σⱼ∈R(tᵢ) exp(f_θ(xⱼ)))]
+
+Onde:
+  δᵢ = 1 se evento observado, 0 se censurado
+  R(tᵢ) = risk set no tempo tᵢ (quem ainda não falhou)
+```
+
+### P.5.3 PyCox Library
+
+```python
+# Implementação com pycox
+
+from pycox.models import CoxPH, DeepHitSingle
+from pycox.preprocessing.feature_transforms import OrderedCategoricalLong
+
+# Preparar dados
+df_train = ...  # features, durations, events
+
+# Modelo CoxPH
+net = tt.practical.MLPVanilla(
+    in_features=n_features,
+    num_nodes=[32, 32],
+    out_features=1,
+    batch_norm=True,
+    dropout=0.1,
+)
+
+model = CoxPH(net, optimizer=tt.optim.Adam)
+model.fit(X_train, (durations_train, events_train), epochs=100)
+
+# Predizer survival function
+surv = model.predict_surv_df(X_test)
+
+# RUL médio
+rul = surv.index[-1] - np.trapz(surv, surv.index)
+```
+
+### P.5.4 Estado Actual vs Implementação Completa
+
+```
+ACTUAL (STUB):
+  - Interface definida
+  - _load_model() retorna None
+  - predict() levanta NotImplementedError
+
+PARA IMPLEMENTAR:
+  1. Preparação de dados (censoring handling)
+  2. Feature engineering (rolling stats, degradation)
+  3. Treino com pycox (DeepSurv ou DeepHit)
+  4. Calibração (garantir probabilidades corretas)
+  5. Integração com SHI-DT para alertas
+
+DADOS NECESSÁRIOS:
+  - Histórico de falhas com timestamps
+  - Features de sensores (vibração, temperatura, etc.)
+  - Eventos de manutenção (censoring events)
+```
+
+---
+
+## P.6 CAUSAL GRAPH LEARNING (PC, FCI, NOTEARS)
+
+### P.6.1 PC Algorithm
+
+```
+OBJECTIVO: Descobrir estrutura causal a partir de dados observacionais.
+
+ALGORITMO:
+
+1. INICIALIZAÇÃO
+   Começar com grafo completo (todas as arestas)
+
+2. FASE DE REMOÇÃO (skeleton learning)
+   Para cada par (X, Y):
+     Se X ⊥ Y | S para algum S ⊆ Adj(X)\{Y}:
+       Remover aresta X-Y
+       Guardar S em sepset(X,Y)
+
+3. ORIENTAÇÃO (v-structures)
+   Para cada triplo X - Z - Y (X e Y não adjacentes):
+     Se Z ∉ sepset(X,Y):
+       Orientar como X → Z ← Y (collider)
+
+4. PROPAGAÇÃO DE ORIENTAÇÕES
+   Aplicar regras de Meek para orientar mais arestas
+
+IMPLEMENTAÇÃO (com causal-learn):
+
+from causallearn.search.ConstraintBased.PC import pc
+
+cg = pc(data, alpha=0.05, indep_test='fisherz')
+print(cg.G)  # Grafo causal descoberto
+```
+
+### P.6.2 NOTEARS (Non-combinatorial Optimization)
+
+```
+INOVAÇÃO: Formulação contínua para DAG learning!
+
+PROBLEMA TRADICIONAL:
+  - Espaço de DAGs é combinatorial
+  - Búsqueda discreta é lenta
+
+NOTEARS INSIGHT:
+  DAG ⟺ h(W) = 0
+  
+  Onde h(W) = tr(e^W) - d
+  
+  W = matriz de adjacência
+  d = número de nodos
+  tr = traço
+  e^W = matrix exponential
+
+FORMULAÇÃO:
+
+min_W  ||X - XW||²_F + λ||W||₁
+
+s.t.   h(W) = 0
+
+OPTIMIZAÇÃO:
+  - Augmented Lagrangian
+  - Gradient descent em W
+  - Aumentar penalty para h(W) iterativamente
+
+CÓDIGO:
+
+from notears import notears_linear
+
+W_est = notears_linear(X, lambda1=0.1)
+# W_est[i,j] != 0 significa j → i
+```
+
+### P.6.3 FCI (Fast Causal Inference)
+
+```
+PROBLEMA: PC assume sem confounders latentes.
+FCI permite confounders não observados.
+
+TIPOS DE ARESTAS:
+  X → Y  : X causa Y
+  X ↔ Y  : Confounder latente causa ambos
+  X o→ Y : X causa Y ou confounder
+  X o-o Y: Incerto
+
+ALGORITMO:
+  Similar ao PC, mas com lógica extra para:
+  - Detectar possíveis latentes
+  - Marcar incertezas nas orientações
+
+QUANDO USAR:
+  - Sempre que suspeitar de confounders não medidos
+  - Mais conservador que PC
+  - Resultado: PAG (Partial Ancestral Graph)
+```
+
+---
+
+## P.7 INTEGRAÇÃO CMMS (Computerized Maintenance Management System)
+
+### P.7.1 Arquitectura de Integração
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     CMMS INTEGRATION                             │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   ┌──────────┐     ┌──────────────┐     ┌───────────────┐       │
+│   │ ProdPlan │◄───►│   Bridge     │◄───►│     CMMS      │       │
+│   │   APS    │     │  (API/DB)    │     │  (SAP PM,     │       │
+│   │          │     │              │     │   Maximo,     │       │
+│   │          │     │              │     │   Infor, etc) │       │
+│   └──────────┘     └──────────────┘     └───────────────┘       │
+│                                                                 │
+│   FLUXO DE DADOS:                                               │
+│                                                                 │
+│   CMMS → ProdPlan:                                              │
+│   - Calendário de manutenção preventiva                         │
+│   - Work orders abertas                                         │
+│   - Histórico de reparações                                     │
+│   - Spare parts inventory                                       │
+│                                                                 │
+│   ProdPlan → CMMS:                                              │
+│   - Alertas de RUL baixo                                        │
+│   - Recomendações de manutenção                                 │
+│   - Work orders automáticos                                     │
+│   - KPIs de disponibilidade                                     │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### P.7.2 APIs Típicas de CMMS
+
+```python
+# Exemplo de interface genérica CMMS
+
+class CMMSBridge:
+    """Bridge para integração com CMMS."""
+    
+    def get_preventive_schedule(self, machine_id: str, horizon_days: int):
+        """Obter schedule de manutenção preventiva."""
+        # API call: GET /maintenance/schedule?machine={}&days={}
+        pass
+    
+    def get_open_work_orders(self, machine_id: Optional[str] = None):
+        """Listar work orders abertas."""
+        # API call: GET /workorders?status=open&machine={}
+        pass
+    
+    def create_work_order(self, 
+                          machine_id: str,
+                          description: str,
+                          priority: str,
+                          due_date: datetime):
+        """Criar novo work order."""
+        # API call: POST /workorders
+        # Body: {machine, description, priority, due_date, source: "APS"}
+        pass
+    
+    def update_work_order_status(self, wo_id: str, status: str):
+        """Actualizar status de work order."""
+        # API call: PATCH /workorders/{id}
+        pass
+    
+    def get_maintenance_history(self, 
+                                 machine_id: str,
+                                 start_date: datetime,
+                                 end_date: datetime):
+        """Histórico de manutenções."""
+        # Para treino de modelos RUL
+        pass
+```
+
+### P.7.3 Sync Bidirecional
+
+```
+SYNC CMMS → ProdPlan (periódico):
+
+1. Obter schedule de manutenção preventiva
+2. Bloquear slots correspondentes no calendário de máquinas
+3. Ajustar capacidade disponível
+4. Re-calcular plano se necessário
+
+SYNC ProdPlan → CMMS (evento):
+
+Trigger: RUL < threshold ou anomalia detectada
+
+1. Gerar alerta com prioridade
+2. Criar work order no CMMS
+3. Incluir dados de diagnóstico
+4. Sugerir janela de intervenção (slot livre no plano)
+
+RECONCILIAÇÃO:
+
+- Work orders completados no CMMS → Desbloquear máquina
+- Atrasos em manutenção → Extender bloqueio no plano
+- Cancelamentos → Reverter reserva
+```
 
 ---
 
