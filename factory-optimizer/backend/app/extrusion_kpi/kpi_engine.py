@@ -223,7 +223,7 @@ def _downstream_days(article_type: Optional[int]) -> int:
 STATUS_CODE_LABELS = {
     "00": "00 — Por iniciar",
     "01": "01 — Por iniciar",
-    "02": "02 — Por iniciar",
+    "02": "02 — Material em supermercado",
     "03": "03 — Por iniciar",
     "04": "04 — Pré-planeada",
     "05": "05 — Planeada",
