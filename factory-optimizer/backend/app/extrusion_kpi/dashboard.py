@@ -53,16 +53,24 @@ def render_dashboard(data: Dict[str, Any]) -> str:
     util_weeks = k.get("weekly_load_vs_capacity", [])
     peak = max((w["utilization_pct"] or 0 for w in util_weeks), default=0)
     peak_tone = "ok" if peak < 80 else ("warn" if peak < 95 else "bad")
+    openo = k.get("open_orders", {})
+    fc = k.get("completion_forecast", {})
+    fc_late = fc.get("forecast_late_orders")
 
     cards = "".join([
+        _card("Ordens em aberto", _fmt(openo.get("count")),
+              f"{_fmt(openo.get('kg'))} kg pendentes"),
+        _card("Conclusão da estação", _fmt(fc.get("station_clear_date")),
+              "data prevista p/ extrudir tudo o que está em aberto"),
+        _card("OFs com risco de atraso", _fmt(fc_late),
+              f"{_fmt(fc.get('forecast_late_kg'))} kg (previsão > entrega)",
+              "bad" if fc_late else "ok"),
         _card("Output / dia (mediana)", _fmt(prod.get("kg_per_day_median"), " kg"),
               f"máx {_fmt(prod.get('kg_per_day_max'))} kg"),
         _card("kg/h real (P50)", _fmt(prod.get("real_kg_h_p50")),
               f"P10–P90: {_fmt(prod.get('real_kg_h_p10'))}–{_fmt(prod.get('real_kg_h_p90'))}"),
         _card("Pendente em atraso", _fmt(late, " kg"),
               "entrega já vencida", late_tone),
-        _card("Total pendente", _fmt(deliv.get("total_pending_kg"), " kg"),
-              f"futuro {_fmt(deliv.get('future_kg'))} · s/ data {_fmt(deliv.get('no_due_date_kg'))}"),
         _card("Backlog (cobertura)", _fmt(backlog.get("coverage_weeks"), " sem"),
               f"{_fmt(backlog.get('total_sem_reservas'))} kg s/ reservas"),
         _card("Pico utilização semanal", _fmt(peak, "%"),
@@ -72,6 +80,37 @@ def render_dashboard(data: Dict[str, Any]) -> str:
         _card("Matrizes bloqueadas", _fmt(blocked.get("count")),
               f"{_fmt(blocked.get('blocked_kg'))} kg parados", "warn" if blocked.get("count") else ""),
     ])
+
+    # --- Tabela: ordens em aberto por estado ---
+    open_rows = "".join(
+        f"<tr><td>{html.escape(str(s['state']))}</td>"
+        f"<td class='num'>{_fmt(s['orders'])}</td>"
+        f"<td class='num'>{_fmt(s['kg'])}</td></tr>"
+        for s in (openo.get("by_state") or [])
+    ) or "<tr><td colspan=3>Sem dados</td></tr>"
+
+    # --- Tabela: previsão de conclusão por prensa ---
+    fc_press_rows = "".join(
+        f"<tr><td>{html.escape(str(p))}</td>"
+        f"<td class='num'>{_fmt(v['orders'])}</td>"
+        f"<td class='num'>{_fmt(v['pending_kg'])}</td>"
+        f"<td class='num'>{_fmt(v['kg_day'])}</td>"
+        f"<td class='num'>{_fmt(v['working_days'])}</td>"
+        f"<td>{html.escape(str(v['clear_date'] or '—'))}</td></tr>"
+        for p, v in (fc.get("by_press") or {}).items()
+    ) or "<tr><td colspan=6>Sem dados</td></tr>"
+
+    # --- Tabela: OFs em risco de atraso (top) ---
+    risk_rows = "".join(
+        f"<tr><td>{html.escape(str(o['die']))}</td>"
+        f"<td>{html.escape(str(o.get('customer') or ''))}</td>"
+        f"<td>{html.escape(str(o['press']))}</td>"
+        f"<td class='num'>{_fmt(o['kg_pending'])}</td>"
+        f"<td>{html.escape(str(o['due_date'] or '—'))}</td>"
+        f"<td>{html.escape(str(o['extrusion_eta'] or '—'))}</td>"
+        f"<td class='bad-t'>{html.escape(str(o['delivery_eta'] or '—'))}</td></tr>"
+        for o in (fc.get("risk_orders_top") or [])
+    ) or "<tr><td colspan=7>Nenhuma OF em risco</td></tr>"
 
     # --- Tabela: carga semanal vs capacidade ---
     week_rows = "".join(
@@ -133,6 +172,11 @@ def render_dashboard(data: Dict[str, Any]) -> str:
         press_rows=press_rows,
         die_rows=die_rows,
         blk_rows=blk_rows,
+        open_rows=open_rows,
+        fc_press_rows=fc_press_rows,
+        risk_rows=risk_rows,
+        station_clear=html.escape(str(fc.get("station_clear_date") or "—")),
+        buffer_days=_fmt(fc.get("buffer_days")),
         otd_note=otd_note,
         total_cap=_fmt(cap.get("total_kg_week")),
     )
@@ -162,6 +206,7 @@ _TEMPLATE = """<!DOCTYPE html>
   th, td {{ text-align:left; padding:10px 12px; font-size:14px; border-bottom:1px solid #1e1e1e; }}
   th {{ color:var(--mut); font-weight:500; background:#181818; position:sticky; top:0; }}
   td.num {{ text-align:right; font-variant-numeric:tabular-nums; }}
+  td.bad-t {{ color:var(--bad); font-weight:500; }}
   tr:last-child td {{ border-bottom:none; }}
   .bar {{ background:#222; border-radius:6px; height:10px; width:120px; }}
   .bar-f {{ height:10px; border-radius:6px; }}
@@ -195,6 +240,24 @@ _TEMPLATE = """<!DOCTYPE html>
       <tbody>{press_rows}</tbody></table>
     </div>
   </div>
+
+  <div class="two">
+    <div>
+      <h2>Ordens em aberto por estado</h2>
+      <table><thead><tr><th>Estado</th><th class="num">OFs</th><th class="num">kg pendente</th></tr></thead>
+      <tbody>{open_rows}</tbody></table>
+    </div>
+    <div>
+      <h2>Previsão de conclusão por prensa</h2>
+      <table><thead><tr><th>Prensa</th><th class="num">OFs</th><th class="num">kg pend.</th><th class="num">kg/dia</th><th class="num">dias úteis</th><th>Conclui em</th></tr></thead>
+      <tbody>{fc_press_rows}</tbody></table>
+      <div class="sub" style="margin-top:8px">Estação conclui o aberto em <b>{station_clear}</b>. Previsão de entrega = extrusão + {buffer_days} dias úteis (serra+embalagem+tratamento).</div>
+    </div>
+  </div>
+
+  <h2>OFs com risco de atraso (previsão de entrega &gt; data de entrega)</h2>
+  <table><thead><tr><th>Matriz</th><th>Cliente</th><th>Prensa</th><th class="num">kg pend.</th><th>Entrega</th><th>Extrusão (prev.)</th><th>Entrega (prev.)</th></tr></thead>
+  <tbody>{risk_rows}</tbody></table>
 
   <div class="two">
     <div>

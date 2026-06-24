@@ -49,6 +49,12 @@ class ExtrusionKPIConfig:
     today: Optional[datetime] = None           # "agora" para cálculo de atraso
     capacity_kg_week: Dict[str, float] = field(default_factory=lambda: dict(DEFAULT_CAPACITY_KG_WEEK))
     capacity_kg_h: Dict[str, float] = field(default_factory=lambda: dict(DEFAULT_CAPACITY_KG_H))
+    # Capacidade diária por prensa (kg/dia útil). Se None, deriva de kg_week/5.
+    capacity_kg_day: Optional[Dict[str, float]] = None
+    # Buffer a jusante (serra + embalagem + tratamento) em dias úteis, da
+    # data de extrusão até à entrega — usado na previsão de cumprimento.
+    downstream_buffer_days: int = 3
+    working_days_per_week: int = 5
 
     def resolve(self) -> "ExtrusionKPIConfig":
         """Preenche caminhos em falta procurando por padrão no data_dir."""
@@ -58,6 +64,9 @@ class ExtrusionKPIConfig:
             self.order_book = _find(self.data_dir, ("livro1", "livro"))
         if self.overview is None:
             self.overview = _find(self.data_dir, ("extrusion_overview", "overview"))
+        if self.capacity_kg_day is None:
+            wd = self.working_days_per_week or 5
+            self.capacity_kg_day = {p: round(kw / wd) for p, kw in self.capacity_kg_week.items()}
         return self
 
 
@@ -155,6 +164,7 @@ _ORDER_COLS = {
     "Kgs Produzido OF": "kg_produced",
     "Matriz": "die",
     "Nome Cliente": "customer",
+    "Nr. Cliente": "customer_nr",
     "Data Entrega": "due_date",
     "Data Fim Emb.": "pack_end_date",
     "Data de Extrusão Planeada": "planned_extrusion_date",
@@ -186,7 +196,7 @@ def _read_order_book(path: str, sheet: str) -> List[Dict[str, Any]]:
             "kg_order": _as_float(get(r, "kg_order")) or 0.0,
             "kg_pending": _as_float(get(r, "kg_pending")) or 0.0,
             "die": get(r, "die"),
-            "customer": get(r, "customer"),
+            "customer": get(r, "customer") or get(r, "customer_nr"),
             "due_date": _as_date(get(r, "due_date")),
             "pack_end_date": _as_date(get(r, "pack_end_date")),
             "planned_extrusion_date": _as_date(get(r, "planned_extrusion_date")),
@@ -233,6 +243,126 @@ def _read_overview(path: str) -> Dict[str, Any]:
                 })
     wb.close()
     return out
+
+
+# --------------------------------------------------------------------------
+# Previsão de conclusão (simulação de capacidade-finita por prensa)
+# --------------------------------------------------------------------------
+
+from datetime import timedelta
+
+
+def _next_working_day(d: datetime) -> datetime:
+    while d.weekday() >= 5:  # 5=sáb, 6=dom
+        d += timedelta(days=1)
+    return d
+
+
+def _add_working_days(d: datetime, n: int) -> datetime:
+    d = _next_working_day(d)
+    for _ in range(n):
+        d = _next_working_day(d + timedelta(days=1))
+    return d
+
+
+_FAR = datetime(2999, 1, 1)
+
+
+def compute_completion_forecast(
+    open_orders: List[Dict[str, Any]],
+    cfg: "ExtrusionKPIConfig",
+    today: datetime,
+) -> Dict[str, Any]:
+    """Estima a data de extrusão de cada OF em aberto e o cumprimento da entrega.
+
+    Modelo: por prensa, as OFs são sequenciadas pela data-âncora (entrega
+    primeiro) e consomem a capacidade diária da prensa em dias úteis. A data
+    de extrusão de cada OF é o dia em que a sua quantidade pendente fica
+    coberta. A previsão de entrega = extrusão + buffer a jusante.
+    """
+    cap_day = cfg.capacity_kg_day or {}
+    buffer_days = cfg.downstream_buffer_days
+
+    by_press: Dict[Any, List[Dict[str, Any]]] = defaultdict(list)
+    for o in open_orders:
+        by_press[o.get("press")].append(o)
+
+    press_summary: Dict[str, Any] = {}
+    order_etas: List[Dict[str, Any]] = []
+
+    for press, lst in by_press.items():
+        # prioridade: data de entrega (âncora) ascendente, depois maior pendente
+        lst.sort(key=lambda o: (o["due_date"] or _FAR, -o["kg_pending"]))
+        total = sum(o["kg_pending"] for o in lst)
+        kgday = cap_day.get(press)
+
+        if not kgday:
+            press_summary[str(press)] = {
+                "pending_kg": round(total), "kg_day": None,
+                "clear_date": None, "working_days": None, "orders": len(lst),
+            }
+            for o in lst:
+                order_etas.append(_eta_record(o, None, None, None))
+            continue
+
+        cur = _next_working_day(today)
+        cap_left = float(kgday)
+        for o in lst:
+            need = o["kg_pending"]
+            while need > 0:
+                if cap_left <= 1e-9:
+                    cur = _next_working_day(cur + timedelta(days=1))
+                    cap_left = float(kgday)
+                take = min(need, cap_left)
+                need -= take
+                cap_left -= take
+            ext_eta = cur
+            deliv_eta = _add_working_days(ext_eta, buffer_days)
+            late = bool(o["due_date"]) and deliv_eta.date() > o["due_date"].date()
+            order_etas.append(_eta_record(o, ext_eta, deliv_eta, late))
+
+        import math
+        press_summary[str(press)] = {
+            "pending_kg": round(total),
+            "kg_day": round(kgday),
+            "clear_date": cur.date().isoformat(),
+            "working_days": math.ceil(total / kgday),
+            "orders": len(lst),
+        }
+
+    clear_dates = [v["clear_date"] for v in press_summary.values() if v["clear_date"]]
+    forecast_late = sum(1 for e in order_etas if e["forecast_late"])
+    forecast_late_kg = round(sum(e["kg_pending"] for e in order_etas if e["forecast_late"]))
+
+    # OFs com previsão de entrega mais tardia / em risco (para listagem)
+    risk = sorted(
+        [e for e in order_etas if e["forecast_late"]],
+        key=lambda e: (e["due_date"] or "9999", -e["kg_pending"]),
+    )
+
+    return {
+        "by_press": press_summary,
+        "station_clear_date": max(clear_dates) if clear_dates else None,
+        "open_orders": len(open_orders),
+        "open_kg": round(sum(o["kg_pending"] for o in open_orders)),
+        "forecast_late_orders": forecast_late,
+        "forecast_late_kg": forecast_late_kg,
+        "buffer_days": buffer_days,
+        "risk_orders_top": risk[:20],
+    }
+
+
+def _eta_record(o, ext_eta, deliv_eta, late) -> Dict[str, Any]:
+    return {
+        "die": o.get("die"),
+        "customer": o.get("customer"),
+        "press": o.get("press"),
+        "kg_pending": round(o["kg_pending"]),
+        "due_date": o["due_date"].date().isoformat() if o.get("due_date") else None,
+        "extrusion_eta": ext_eta.date().isoformat() if ext_eta else None,
+        "delivery_eta": deliv_eta.date().isoformat() if deliv_eta else None,
+        "forecast_late": bool(late),
+    }
 
 
 # --------------------------------------------------------------------------
@@ -354,6 +484,25 @@ def compute_kpis(config: Optional[ExtrusionKPIConfig] = None) -> Dict[str, Any]:
             "otd_pct": _pct(otd_on, otd_total),
             "otd_sample": otd_total,
         }
+
+        # --- Ordens em aberto (kg pendente > 0) ---
+        open_orders = [o for o in orders if o["kg_pending"] > 0]
+        by_state: Dict[str, List[float]] = defaultdict(lambda: [0, 0.0])
+        for o in open_orders:
+            st = o["plan_status"] or o["status"] or "(sem estado)"
+            by_state[str(st)][0] += 1
+            by_state[str(st)][1] += o["kg_pending"]
+        K["open_orders"] = {
+            "count": len(open_orders),
+            "kg": round(sum(o["kg_pending"] for o in open_orders)),
+            "by_state": [
+                {"state": s, "orders": int(v[0]), "kg": round(v[1])}
+                for s, v in sorted(by_state.items(), key=lambda kv: -kv[1][1])
+            ],
+        }
+
+        # --- Previsão de conclusão (capacidade-finita por prensa) ---
+        K["completion_forecast"] = compute_completion_forecast(open_orders, cfg, today)
 
         # Carga planeada por prensa
         load_press: Dict[str, float] = defaultdict(float)
