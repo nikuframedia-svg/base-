@@ -89,6 +89,16 @@ def render_dashboard(data: Dict[str, Any]) -> str:
         for s in (openo.get("by_state") or [])
     ) or "<tr><td colspan=3>Sem dados</td></tr>"
 
+    # --- Tabela: ordens em aberto por processo (lead time a jusante) ---
+    proc_rows = "".join(
+        f"<tr><td>{html.escape(str(p['type']) if p['type'] is not None else '—')}</td>"
+        f"<td>{html.escape(str(p['process']))}</td>"
+        f"<td class='num'>{_fmt(p['lead_days'])} d</td>"
+        f"<td class='num'>{_fmt(p['orders'])}</td>"
+        f"<td class='num'>{_fmt(p['kg'])}</td></tr>"
+        for p in (openo.get("by_process") or [])
+    ) or "<tr><td colspan=5>Sem dados</td></tr>"
+
     # --- Tabela: previsão de conclusão por prensa ---
     fc_press_rows = "".join(
         f"<tr><td>{html.escape(str(p))}</td>"
@@ -104,6 +114,7 @@ def render_dashboard(data: Dict[str, Any]) -> str:
     risk_rows = "".join(
         f"<tr><td>{html.escape(str(o.get('of') or '—'))}</td>"
         f"<td>{html.escape(str(o['die']))}</td>"
+        f"<td>{html.escape(str(o.get('process') or ''))}</td>"
         f"<td>{html.escape(str(o.get('customer') or ''))}</td>"
         f"<td>{html.escape(str(o['press']))}</td>"
         f"<td class='num'>{_fmt(o['kg_pending'])}</td>"
@@ -111,7 +122,7 @@ def render_dashboard(data: Dict[str, Any]) -> str:
         f"<td>{html.escape(str(o['extrusion_eta'] or '—'))}</td>"
         f"<td class='bad-t'>{html.escape(str(o['delivery_eta'] or '—'))}</td></tr>"
         for o in (fc.get("risk_orders_top") or [])
-    ) or "<tr><td colspan=8>Nenhuma OF em risco</td></tr>"
+    ) or "<tr><td colspan=9>Nenhuma OF em risco</td></tr>"
 
     # --- Proposta de planeamento de produção ---
     plan = k.get("production_plan", {})
@@ -130,7 +141,7 @@ def render_dashboard(data: Dict[str, Any]) -> str:
         f"<td class='num'>{r['seq']}</td>"
         f"<td>{html.escape(str(r.get('of') or '—'))}</td>"
         f"<td>{html.escape(str(r['die']))}{' ↩' if r.get('campaign_with_prev') else ''}</td>"
-        f"<td>{html.escape(str(r.get('alloy') or ''))}</td>"
+        f"<td>{html.escape(str(r.get('process') or ''))}</td>"
         f"<td class='num'>{_fmt(r['kg'])}</td>"
         f"<td class='num'>{_fmt(r['rate_kg_h'])}</td>"
         f"<td>{html.escape(r['start'].replace('T',' ')+'h')}</td>"
@@ -225,6 +236,7 @@ def render_dashboard(data: Dict[str, Any]) -> str:
         die_rows=die_rows,
         blk_rows=blk_rows,
         open_rows=open_rows,
+        proc_rows=proc_rows,
         fc_press_rows=fc_press_rows,
         risk_rows=risk_rows,
         plan_rows_html=plan_rows_html,
@@ -312,8 +324,13 @@ _TEMPLATE = """<!DOCTYPE html>
     </div>
   </div>
 
+  <h2>Ordens em aberto por processo (lead time a jusante)</h2>
+  <div class="sub">Tipo de artigo final (código L12345.<b>X</b>.YYY de _ItemOriginal). Lead = acabamento + 3 dias de embalagem.</div>
+  <table><thead><tr><th>X</th><th>Processo</th><th class="num">Lead</th><th class="num">OFs</th><th class="num">kg pend.</th></tr></thead>
+  <tbody>{proc_rows}</tbody></table>
+
   <h2>OFs com risco de atraso (previsão de entrega &gt; data de entrega)</h2>
-  <table><thead><tr><th>OF</th><th>Matriz</th><th>Cliente</th><th>Prensa</th><th class="num">kg pend.</th><th>Entrega</th><th>Extrusão (prev.)</th><th>Entrega (prev.)</th></tr></thead>
+  <table><thead><tr><th>OF</th><th>Matriz</th><th>Processo</th><th>Cliente</th><th>Prensa</th><th class="num">kg pend.</th><th>Entrega</th><th>Extrusão (prev.)</th><th>Entrega (prev.)</th></tr></thead>
   <tbody>{risk_rows}</tbody></table>
 
   <h2>Proposta de planeamento de produção</h2>
@@ -321,7 +338,7 @@ _TEMPLATE = """<!DOCTYPE html>
   <table style="margin-bottom:16px"><thead><tr><th>Prensa</th><th class="num">OFs</th><th class="num">Campanhas</th><th class="num">Trocas</th><th class="num">Horas prod.</th><th>Conclui em</th></tr></thead>
   <tbody>{plan_press_rows}</tbody></table>
   <div class="sub">Sequência proposta (primeiras {plan_shown} de {plan_total} OFs; ↩ = mesma campanha de matriz). Atraso em dias úteis vs. data de entrega.</div>
-  <table><thead><tr><th>Prensa</th><th class="num">Seq</th><th>OF</th><th>Matriz</th><th>Liga</th><th class="num">kg</th><th class="num">kg/h</th><th>Início</th><th>Fim</th><th>Entrega</th><th class="num">Atraso (d)</th></tr></thead>
+  <table><thead><tr><th>Prensa</th><th class="num">Seq</th><th>OF</th><th>Matriz</th><th>Processo</th><th class="num">kg</th><th class="num">kg/h</th><th>Início</th><th>Fim</th><th>Entrega</th><th class="num">Atraso (d)</th></tr></thead>
   <tbody>{plan_rows_html}</tbody></table>
 
   <div class="two">

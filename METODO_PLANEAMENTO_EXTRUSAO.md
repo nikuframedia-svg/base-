@@ -86,11 +86,27 @@ ENCOMENDA → (1) QUANDO extrudir  → (2) EM QUE PRENSA → (3) EM QUE SEQUÊNC
 Para cada OF:
 ```
 Data_limite_extrusão = Data_entrega
-                       − Lead_time_tratamento(tipo)      (folha Lead Time: Bruto 1d, Lacado 2d, Mec. 3d, …)
-                       − buffer_serra_embalagem          (estimar do WIP: ~1 dia)
-                       − margem_segurança (ex.: 1 dia)
+                       − Lead_time_acabamento(X)         (tipo de artigo X, ver tabela abaixo)
+                       − 3 dias (embalagem final)
 ```
 Esta data é a **data mais tardia** em que a OF pode entrar na prensa sem falhar a entrega. Ordena toda a carteira por esta data.
+
+**Tipo de artigo e lead time** — derivado do código do artigo final `L12345.X.YYY` (campo `_ItemOriginal`), onde **X** = penúltimo segmento:
+
+| X | Processo | Lead acabamento | + Embalagem | Lead total a jusante |
+|---|---|---|---|---|
+| 0 | Extrusão (bruto) | 5 d | +3 | **8 d** |
+| 1 | Lacado | 7 d | +3 | 10 d |
+| 2 | Lacado efeito madeira | 14 d | +3 | 17 d |
+| 3 | Anodizado | 14 d | +3 | 17 d |
+| 4 | Anodizado polido | 21 d | +3 | **24 d** |
+| 5 | Cravado bruto | 7 d | +3 | 10 d |
+| 6 | Cravado lacado | 7 d | +3 | 10 d |
+| 7 | Maquinado bruto | 7 d | +3 | 10 d |
+| 8 | Maquinado tratado | 7 d | +3 | 10 d |
+| 9 | Assemblado | (n/d → 7 d) | +3 | 10 d |
+
+> Implementado em `ARTICLE_TYPE` / `_downstream_days` (kpi_engine). A previsão de entrega = fim de extrusão + lead total a jusante (dias de calendário). É isto que torna o atraso por OF realista: um *anodizado polido* tem de ser extrudido **24 dias** antes da data de entrega.
 
 ### 4.2 Parâmetros de produtividade (aprendidos do histórico)
 Do log da prensa, por **matriz** (e por **família/composto de liga + diâmetro** quando a matriz tem poucos dados):

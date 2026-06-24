@@ -176,7 +176,43 @@ _ORDER_COLS = {
     "Data de Extrusão Planeada": "planned_extrusion_date",
     "Status Planeamento Descrição": "plan_status",
     "Estado OF": "of_state",
+    "_ItemOriginal": "item_original",
 }
+
+
+# Tipo de artigo X no código L12345.X.YYY (X = penúltimo segmento) -> (nome,
+# lead time da operação de acabamento em dias). +3 dias de embalagem final
+# aplicam-se a todos (ver PACKING_DAYS). Estes são dias de calendário.
+ARTICLE_TYPE = {
+    0: ("Extrusão (bruto)", 5),
+    1: ("Lacado", 7),
+    2: ("Lacado efeito madeira", 14),
+    3: ("Anodizado", 14),
+    4: ("Anodizado polido", 21),
+    5: ("Cravado bruto", 7),
+    6: ("Cravado lacado", 7),
+    7: ("Maquinado bruto", 7),
+    8: ("Maquinado tratado", 7),
+    9: ("Assemblado", 7),  # lead time não especificado -> assume 7
+}
+PACKING_DAYS = 3
+
+
+def _article_type(*items) -> Optional[int]:
+    """Extrai o tipo X (penúltimo segmento) do código de artigo L12345.X.YYY."""
+    for it in items:
+        if not it:
+            continue
+        parts = str(it).strip().split(".")
+        if len(parts) >= 2 and parts[-2].isdigit():
+            return int(parts[-2])
+    return None
+
+
+def _downstream_days(article_type: Optional[int]) -> int:
+    """Dias de calendário da extrusão até pronto-a-entregar = lead(X) + embalagem."""
+    lead = ARTICLE_TYPE.get(article_type, ("?", PACKING_DAYS))[1] if article_type is not None else 0
+    return lead + PACKING_DAYS
 
 
 # Mapa do código de estado (coluna "Status", sempre preenchida) -> nome PT.
@@ -241,6 +277,7 @@ def _read_order_book(path: str, sheet: str) -> List[Dict[str, Any]]:
             "planned_extrusion_date": _as_date(get(r, "planned_extrusion_date")),
             "plan_status": get(r, "plan_status"),
             "of_state": get(r, "of_state"),
+            "item_original": get(r, "item_original"),
         })
     wb.close()
     return orders
@@ -356,7 +393,8 @@ def compute_completion_forecast(
                 need -= take
                 cap_left -= take
             ext_eta = cur
-            deliv_eta = _add_working_days(ext_eta, buffer_days)
+            # entrega = extrusão + lead do acabamento + embalagem (dias calendário)
+            deliv_eta = ext_eta + timedelta(days=o.get("downstream_days", buffer_days))
             late = bool(o["due_date"]) and deliv_eta.date() > o["due_date"].date()
             order_etas.append(_eta_record(o, ext_eta, deliv_eta, late))
 
@@ -483,13 +521,16 @@ def compute_production_plan(
             start = _next_working_dt(cursor)
             cursor = _advance_hours(cursor, hours, hpd)
             end = cursor
-            deliv = _add_working_days(end, buffer_days)
+            # entrega = fim de extrusão + lead do acabamento + embalagem (calendário)
+            deliv = end + timedelta(days=o.get("downstream_days", buffer_days))
             delay = (deliv.date() - o["due_date"].date()).days if o["due_date"] else None
             seq += 1
             plan_rows.append({
                 "press": press,
                 "seq": seq,
                 "of": o.get("of"),
+                "process": o.get("process"),
+                "downstream_days": o.get("downstream_days"),
                 "die": die,
                 "alloy": o.get("alloy"),
                 "customer": o.get("customer"),
@@ -537,6 +578,7 @@ def _eta_record(o, ext_eta, deliv_eta, late) -> Dict[str, Any]:
     return {
         "of": o.get("of"),
         "die": o.get("die"),
+        "process": o.get("process"),
         "customer": o.get("customer"),
         "press": o.get("press"),
         "kg_pending": round(o["kg_pending"]),
@@ -562,6 +604,14 @@ def compute_kpis(config: Optional[ExtrusionKPIConfig] = None) -> Dict[str, Any]:
     runs = _read_production_log(cfg.production_log) if cfg.production_log else []
     orders = _read_order_book(cfg.order_book, cfg.order_book_sheet) if cfg.order_book else []
     overview = _read_overview(cfg.overview) if cfg.overview else {}
+
+    # Anotar cada OF com o tipo de artigo final (de _ItemOriginal) e o lead
+    # time a jusante (acabamento + embalagem) que determina a data de entrega.
+    for o in orders:
+        at = _article_type(o.get("item_original"), o.get("die"))
+        o["article_type"] = at
+        o["process"] = ARTICLE_TYPE.get(at, ("(desconhecido)", 0))[0] if at is not None else "(bruto)"
+        o["downstream_days"] = _downstream_days(at)
 
     today = cfg.today
     if today is None and runs:
@@ -674,16 +724,30 @@ def compute_kpis(config: Optional[ExtrusionKPIConfig] = None) -> Dict[str, Any]:
         # mapeada para nome PT — fonte única e coerente.
         open_orders = [o for o in orders if o["kg_pending"] > 0]
         by_state: Dict[str, List[float]] = defaultdict(lambda: [0, 0.0])
+        by_proc: Dict[Any, List[float]] = defaultdict(lambda: [0, 0.0])
         for o in open_orders:
             st = _status_label(o["status"])
             by_state[st][0] += 1
             by_state[st][1] += o["kg_pending"]
+            at = o.get("article_type")
+            by_proc[at if at is not None else -1][0] += 1
+            by_proc[at if at is not None else -1][1] += o["kg_pending"]
         K["open_orders"] = {
             "count": len(open_orders),
             "kg": round(sum(o["kg_pending"] for o in open_orders)),
             "by_state": [
                 {"state": s, "orders": int(v[0]), "kg": round(v[1])}
                 for s, v in sorted(by_state.items(), key=lambda kv: kv[0])
+            ],
+            "by_process": [
+                {
+                    "type": (at if at >= 0 else None),
+                    "process": ARTICLE_TYPE.get(at, ("(sem código)", 0))[0],
+                    "lead_days": _downstream_days(at if at >= 0 else None),
+                    "orders": int(v[0]),
+                    "kg": round(v[1]),
+                }
+                for at, v in sorted(by_proc.items(), key=lambda kv: kv[0])
             ],
         }
 
