@@ -102,7 +102,8 @@ def render_dashboard(data: Dict[str, Any]) -> str:
 
     # --- Tabela: OFs em risco de atraso (top) ---
     risk_rows = "".join(
-        f"<tr><td>{html.escape(str(o['die']))}</td>"
+        f"<tr><td>{html.escape(str(o.get('of') or '—'))}</td>"
+        f"<td>{html.escape(str(o['die']))}</td>"
         f"<td>{html.escape(str(o.get('customer') or ''))}</td>"
         f"<td>{html.escape(str(o['press']))}</td>"
         f"<td class='num'>{_fmt(o['kg_pending'])}</td>"
@@ -110,7 +111,7 @@ def render_dashboard(data: Dict[str, Any]) -> str:
         f"<td>{html.escape(str(o['extrusion_eta'] or '—'))}</td>"
         f"<td class='bad-t'>{html.escape(str(o['delivery_eta'] or '—'))}</td></tr>"
         for o in (fc.get("risk_orders_top") or [])
-    ) or "<tr><td colspan=7>Nenhuma OF em risco</td></tr>"
+    ) or "<tr><td colspan=8>Nenhuma OF em risco</td></tr>"
 
     # --- Tabela: carga semanal vs capacidade ---
     week_rows = "".join(
@@ -256,7 +257,7 @@ _TEMPLATE = """<!DOCTYPE html>
   </div>
 
   <h2>OFs com risco de atraso (previsão de entrega &gt; data de entrega)</h2>
-  <table><thead><tr><th>Matriz</th><th>Cliente</th><th>Prensa</th><th class="num">kg pend.</th><th>Entrega</th><th>Extrusão (prev.)</th><th>Entrega (prev.)</th></tr></thead>
+  <table><thead><tr><th>OF</th><th>Matriz</th><th>Cliente</th><th>Prensa</th><th class="num">kg pend.</th><th>Entrega</th><th>Extrusão (prev.)</th><th>Entrega (prev.)</th></tr></thead>
   <tbody>{risk_rows}</tbody></table>
 
   <div class="two">

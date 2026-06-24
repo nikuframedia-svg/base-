@@ -157,6 +157,7 @@ def _read_production_log(path: str) -> List[Dict[str, Any]]:
 # Mapeamento dos nomes de coluna da carteira de OFs -> chave interna.
 _ORDER_COLS = {
     "Status": "status",
+    "OF": "of",
     "Prensa Plan": "press",
     "Kgs Planeado": "kg_planned",
     "Kgs Encomenda": "kg_order",
@@ -191,6 +192,7 @@ def _read_order_book(path: str, sheet: str) -> List[Dict[str, Any]]:
             continue
         orders.append({
             "status": get(r, "status"),
+            "of": get(r, "of"),
             "press": get(r, "press"),
             "kg_planned": _as_float(get(r, "kg_planned")) or 0.0,
             "kg_order": _as_float(get(r, "kg_order")) or 0.0,
@@ -354,6 +356,7 @@ def compute_completion_forecast(
 
 def _eta_record(o, ext_eta, deliv_eta, late) -> Dict[str, Any]:
     return {
+        "of": o.get("of"),
         "die": o.get("die"),
         "customer": o.get("customer"),
         "press": o.get("press"),
