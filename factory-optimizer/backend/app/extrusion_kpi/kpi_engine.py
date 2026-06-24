@@ -184,7 +184,9 @@ _ORDER_COLS = {
 # lead time da operação de acabamento em dias). +3 dias de embalagem final
 # aplicam-se a todos (ver PACKING_DAYS). Estes são dias de calendário.
 ARTICLE_TYPE = {
-    0: ("Extrusão (bruto)", 5),
+    # Tipo 0 (bruto): os "5 dias" incluem a própria extrusão (já agendada pela
+    # prensa), por isso o lead a jusante é só a embalagem -> lead acabamento = 0.
+    0: ("Extrusão (bruto)", 0),
     1: ("Lacado", 7),
     2: ("Lacado efeito madeira", 14),
     3: ("Anodizado", 14),
