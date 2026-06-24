@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from dotenv import load_dotenv
 
-from app.api import bottlenecks, chat, compat, etl, insight, insights, inventory, planning, planning_chat, planning_v2, suggestions, technical_queries, whatif
+from app.api import bottlenecks, chat, compat, etl, extrusion_kpi, insight, insights, inventory, planning, planning_chat, planning_v2, suggestions, technical_queries, whatif
 from app.etl.loader import get_loader, run_startup_etl
 
 # Import ops_ingestion router
@@ -39,6 +39,7 @@ app.include_router(chat.router, prefix="/api/chat", tags=["Chat"])
 app.include_router(suggestions.router, prefix="/api/suggestions", tags=["Suggestions"])
 app.include_router(insight.router, prefix="/api/insight", tags=["Insight"])
 app.include_router(insights.router, prefix="/api/insights", tags=["Insights"])
+app.include_router(extrusion_kpi.router, prefix="/api/extrusion-kpi", tags=["Extrusion KPIs"])
 app.include_router(etl.router, prefix="/api", tags=["ETL"])
 app.include_router(compat.router, tags=["Compatibility"])
 
