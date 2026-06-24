@@ -179,6 +179,36 @@ _ORDER_COLS = {
 }
 
 
+# Mapa do código de estado (coluna "Status", sempre preenchida) -> nome PT.
+# Chaveado pelo código numérico inicial para ser robusto a exports onde o
+# texto inglês não vem (ex.: "04 Pre Planned" e "04" mapeiam ambos para 04).
+STATUS_CODE_LABELS = {
+    "00": "00 — Por iniciar",
+    "01": "01 — Por iniciar",
+    "02": "02 — Por iniciar",
+    "03": "03 — Por iniciar",
+    "04": "04 — Pré-planeada",
+    "05": "05 — Planeada",
+    "06": "06 — Planeada",
+    "07": "07 — Antes do forno",
+    "08": "08 — Matriz no forno",
+    "09": "09 — Na prensa",
+    "10": "10 — Em execução",
+    "11": "11 — Reporte de serra",
+    "12": "12 — Em embalagem",
+    "13": "13 — Embalagem/Reporte",
+}
+
+
+def _status_label(raw: Any) -> str:
+    """Nome legível do estado a partir da coluna 'Status' (código 00–13)."""
+    s = str(raw).strip() if raw is not None else ""
+    if not s:
+        return "(sem estado)"
+    code = s.split()[0]
+    return STATUS_CODE_LABELS.get(code, s)
+
+
 def _read_order_book(path: str, sheet: str) -> List[Dict[str, Any]]:
     wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
     ws = wb[sheet] if sheet in wb.sheetnames else wb.worksheets[0]
@@ -640,18 +670,20 @@ def compute_kpis(config: Optional[ExtrusionKPIConfig] = None) -> Dict[str, Any]:
         }
 
         # --- Ordens em aberto (kg pendente > 0) ---
+        # Estado lido da coluna "Status" (código 00–13, sempre preenchida),
+        # mapeada para nome PT — fonte única e coerente.
         open_orders = [o for o in orders if o["kg_pending"] > 0]
         by_state: Dict[str, List[float]] = defaultdict(lambda: [0, 0.0])
         for o in open_orders:
-            st = o["plan_status"] or o["status"] or "(sem estado)"
-            by_state[str(st)][0] += 1
-            by_state[str(st)][1] += o["kg_pending"]
+            st = _status_label(o["status"])
+            by_state[st][0] += 1
+            by_state[st][1] += o["kg_pending"]
         K["open_orders"] = {
             "count": len(open_orders),
             "kg": round(sum(o["kg_pending"] for o in open_orders)),
             "by_state": [
                 {"state": s, "orders": int(v[0]), "kg": round(v[1])}
-                for s, v in sorted(by_state.items(), key=lambda kv: -kv[1][1])
+                for s, v in sorted(by_state.items(), key=lambda kv: kv[0])
             ],
         }
 
