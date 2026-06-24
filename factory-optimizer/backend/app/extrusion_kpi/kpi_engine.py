@@ -55,6 +55,9 @@ class ExtrusionKPIConfig:
     # data de extrusão até à entrega — usado na previsão de cumprimento.
     downstream_buffer_days: int = 3
     working_days_per_week: int = 5
+    # Parâmetros da proposta de planeamento (sequenciação por prensa).
+    plan_hours_per_day: float = 24.0     # horas de produção por dia útil
+    plan_setup_hours: float = 0.3        # tempo de troca de matriz (campanha)
 
     def resolve(self) -> "ExtrusionKPIConfig":
         """Preenche caminhos em falta procurando por padrão no data_dir."""
@@ -164,6 +167,8 @@ _ORDER_COLS = {
     "Kgs Pend.": "kg_pending",
     "Kgs Produzido OF": "kg_produced",
     "Matriz": "die",
+    "Liga Planeamento": "alloy",
+    "Diametro": "diameter",
     "Nome Cliente": "customer",
     "Nr. Cliente": "customer_nr",
     "Data Entrega": "due_date",
@@ -198,6 +203,8 @@ def _read_order_book(path: str, sheet: str) -> List[Dict[str, Any]]:
             "kg_order": _as_float(get(r, "kg_order")) or 0.0,
             "kg_pending": _as_float(get(r, "kg_pending")) or 0.0,
             "die": get(r, "die"),
+            "alloy": get(r, "alloy"),
+            "diameter": get(r, "diameter"),
             "customer": get(r, "customer") or get(r, "customer_nr"),
             "due_date": _as_date(get(r, "due_date")),
             "pack_end_date": _as_date(get(r, "pack_end_date")),
@@ -354,6 +361,148 @@ def compute_completion_forecast(
     }
 
 
+def _next_working_dt(d: datetime) -> datetime:
+    """Próximo instante útil: se fim-de-semana, salta para 2ª-feira 00:00."""
+    while d.weekday() >= 5:
+        d = (d + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    return d
+
+
+def _advance_hours(cursor: datetime, hours: float, hours_per_day: float) -> datetime:
+    """Avança o cursor por `hours` de produção, respeitando dias úteis e o
+    limite de `hours_per_day` por dia."""
+    cursor = _next_working_dt(cursor)
+    remaining = hours
+    while remaining > 1e-9:
+        day_start = cursor.replace(hour=0, minute=0, second=0, microsecond=0)
+        used = (cursor - day_start).total_seconds() / 3600.0
+        avail = hours_per_day - used
+        if avail <= 1e-9:
+            cursor = _next_working_dt((day_start + timedelta(days=1)))
+            continue
+        take = min(remaining, avail)
+        cursor = cursor + timedelta(hours=take)
+        remaining -= take
+    return cursor
+
+
+def compute_production_plan(
+    open_orders: List[Dict[str, Any]],
+    die_kg_h: Dict[str, float],
+    cfg: "ExtrusionKPIConfig",
+    today: datetime,
+) -> Dict[str, Any]:
+    """Proposta de planeamento: sequencia as OFs em aberto por prensa.
+
+    Otimização aplicada:
+      • Processo — campanhas por matriz: as OFs da mesma matriz correm
+        consecutivas (a campanha herda a data de entrega mais cedo das suas
+        OFs), reduzindo trocas de matriz sem violar a urgência (EDD).
+      • Máquina — usa o kg/h REAL da matriz (aprendido do histórico) para
+        estimar o tempo de prensa de cada OF; fallback para o kg/h nominal
+        da prensa.
+    Calcula início/fim previstos por OF, a data de entrega prevista
+    (extrusão + buffer) e o atraso (dias) face à data de entrega.
+    """
+    hpd = cfg.plan_hours_per_day
+    setup_h = cfg.plan_setup_hours
+    buffer_days = cfg.downstream_buffer_days
+    nominal = cfg.capacity_kg_h or {}
+    fallback_rate = (statistics.median(list(die_kg_h.values())) if die_kg_h else 1500) or 1500
+
+    def rate_for(o):
+        r = die_kg_h.get(o.get("die"))
+        if r and r > 0:
+            return r, "matriz"
+        nr = nominal.get(o.get("press"))
+        if nr and nr > 0:
+            return nr, "prensa"
+        return fallback_rate, "global"
+
+    by_press: Dict[Any, List[Dict[str, Any]]] = defaultdict(list)
+    for o in open_orders:
+        by_press[o.get("press")].append(o)
+
+    plan_rows: List[Dict[str, Any]] = []
+    press_summary: Dict[str, Any] = {}
+
+    for press, lst in by_press.items():
+        # data de entrega mais cedo por matriz (âncora da campanha)
+        die_anchor: Dict[Any, datetime] = {}
+        for o in lst:
+            d = o["due_date"] or _FAR
+            key = o.get("die")
+            if key not in die_anchor or d < die_anchor[key]:
+                die_anchor[key] = d
+        # EDD com campanhas: ordena por âncora da matriz, depois matriz, depois entrega
+        lst.sort(key=lambda o: (die_anchor[o.get("die")], str(o.get("die")), o["due_date"] or _FAR))
+
+        cursor = _next_working_dt(today)
+        seq = 0
+        setups = 0
+        prev_die = None
+        prod_hours = 0.0
+        for o in lst:
+            die = o.get("die")
+            if prev_die is not None and die != prev_die:
+                cursor = _advance_hours(cursor, setup_h, hpd)
+                setups += 1
+            rate, rate_src = rate_for(o)
+            hours = o["kg_pending"] / rate
+            prod_hours += hours
+            start = _next_working_dt(cursor)
+            cursor = _advance_hours(cursor, hours, hpd)
+            end = cursor
+            deliv = _add_working_days(end, buffer_days)
+            delay = (deliv.date() - o["due_date"].date()).days if o["due_date"] else None
+            seq += 1
+            plan_rows.append({
+                "press": press,
+                "seq": seq,
+                "of": o.get("of"),
+                "die": die,
+                "alloy": o.get("alloy"),
+                "customer": o.get("customer"),
+                "kg": round(o["kg_pending"]),
+                "rate_kg_h": round(rate),
+                "rate_source": rate_src,
+                "campaign_with_prev": die == prev_die,
+                "start": start.isoformat(timespec="hours"),
+                "end": end.isoformat(timespec="hours"),
+                "due_date": o["due_date"].date().isoformat() if o["due_date"] else None,
+                "delivery_eta": deliv.date().isoformat(),
+                "delay_days": delay,
+                "late": bool(delay is not None and delay > 0),
+            })
+            prev_die = die
+
+        campaigns = len({r["die"] for r in plan_rows if r["press"] == press})
+        press_summary[str(press)] = {
+            "orders": len(lst),
+            "campaigns": campaigns,
+            "setups": setups,
+            "prod_hours": round(prod_hours, 1),
+            "finish": cursor.date().isoformat() if lst else None,
+        }
+
+    late_rows = [r for r in plan_rows if r["late"]]
+    return {
+        "params": {
+            "hours_per_day": hpd,
+            "setup_hours": setup_h,
+            "downstream_buffer_days": buffer_days,
+        },
+        "by_press": press_summary,
+        "total_orders": len(plan_rows),
+        "total_campaigns": sum(v["campaigns"] for v in press_summary.values()),
+        "total_setups": sum(v["setups"] for v in press_summary.values()),
+        "late_orders": len(late_rows),
+        "late_kg": round(sum(r["kg"] for r in late_rows)),
+        # tabela ordenada por prensa e sequência (limitada para visualização)
+        "rows": sorted(plan_rows, key=lambda r: (str(r["press"]), r["seq"])),
+    }
+
+
 def _eta_record(o, ext_eta, deliv_eta, late) -> Dict[str, Any]:
     return {
         "of": o.get("of"),
@@ -400,6 +549,7 @@ def compute_kpis(config: Optional[ExtrusionKPIConfig] = None) -> Dict[str, Any]:
         "kpis": {},
     }
     K = result["kpis"]
+    die_kg_h_full: Dict[str, float] = {}
 
     # --- Produção: output, período, kg/h real ---
     if runs:
@@ -436,9 +586,10 @@ def compute_kpis(config: Optional[ExtrusionKPIConfig] = None) -> Dict[str, Any]:
             if r["die"] and r["dur_s"] and r["kg"]:
                 die_kg[r["die"]] += r["kg"]
                 die_h[r["die"]] += r["dur_s"] / 3600
+        die_kg_h_full = {d: die_kg[d] / die_h[d] for d in die_kg if die_h[d] > 0}
         die_rate = [
-            {"die": d, "kg": round(die_kg[d]), "kg_h": round(die_kg[d] / die_h[d])}
-            for d in die_kg if die_h[d] > 0
+            {"die": d, "kg": round(die_kg[d]), "kg_h": round(rate)}
+            for d, rate in die_kg_h_full.items()
         ]
         die_rate.sort(key=lambda x: -x["kg"])
         K["die_productivity_top"] = die_rate[:15]
@@ -506,6 +657,9 @@ def compute_kpis(config: Optional[ExtrusionKPIConfig] = None) -> Dict[str, Any]:
 
         # --- Previsão de conclusão (capacidade-finita por prensa) ---
         K["completion_forecast"] = compute_completion_forecast(open_orders, cfg, today)
+
+        # --- Proposta de planeamento de produção (sequência otimizada) ---
+        K["production_plan"] = compute_production_plan(open_orders, die_kg_h_full, cfg, today)
 
         # Carga planeada por prensa
         load_press: Dict[str, float] = defaultdict(float)

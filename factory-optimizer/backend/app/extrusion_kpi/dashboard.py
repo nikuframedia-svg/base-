@@ -113,6 +113,57 @@ def render_dashboard(data: Dict[str, Any]) -> str:
         for o in (fc.get("risk_orders_top") or [])
     ) or "<tr><td colspan=8>Nenhuma OF em risco</td></tr>"
 
+    # --- Proposta de planeamento de produção ---
+    plan = k.get("production_plan", {})
+    plan_limit = 80
+    plan_all = plan.get("rows") or []
+
+    def _delay_cell(d):
+        if d is None:
+            return "<td class='num'>—</td>"
+        cls = "bad-t" if d > 0 else ""
+        txt = f"+{d}" if d > 0 else str(d)
+        return f"<td class='num {cls}'>{txt}</td>"
+
+    plan_rows_html = "".join(
+        f"<tr><td>{html.escape(str(r['press']))}</td>"
+        f"<td class='num'>{r['seq']}</td>"
+        f"<td>{html.escape(str(r.get('of') or '—'))}</td>"
+        f"<td>{html.escape(str(r['die']))}{' ↩' if r.get('campaign_with_prev') else ''}</td>"
+        f"<td>{html.escape(str(r.get('alloy') or ''))}</td>"
+        f"<td class='num'>{_fmt(r['kg'])}</td>"
+        f"<td class='num'>{_fmt(r['rate_kg_h'])}</td>"
+        f"<td>{html.escape(r['start'].replace('T',' ')+'h')}</td>"
+        f"<td>{html.escape(r['end'].replace('T',' ')+'h')}</td>"
+        f"<td>{html.escape(str(r['due_date'] or '—'))}</td>"
+        f"{_delay_cell(r['delay_days'])}</tr>"
+        for r in plan_all[:plan_limit]
+    ) or "<tr><td colspan=11>Sem dados</td></tr>"
+
+    plan_press_rows = "".join(
+        f"<tr><td>{html.escape(str(p))}</td>"
+        f"<td class='num'>{_fmt(v['orders'])}</td>"
+        f"<td class='num'>{_fmt(v['campaigns'])}</td>"
+        f"<td class='num'>{_fmt(v['setups'])}</td>"
+        f"<td class='num'>{_fmt(v['prod_hours'])}</td>"
+        f"<td>{html.escape(str(v['finish'] or '—'))}</td></tr>"
+        for p, v in (plan.get("by_press") or {}).items()
+    ) or "<tr><td colspan=6>Sem dados</td></tr>"
+
+    pp = plan.get("params", {})
+    setup_h_total = (plan.get("total_setups") or 0) * (pp.get("setup_hours") or 0)
+    prod_h_total = sum((v.get("prod_hours") or 0) for v in (plan.get("by_press") or {}).values())
+    saved = (plan.get("total_orders") or 0) - (plan.get("total_campaigns") or 0)
+    plan_note = (
+        f"Otimização — processo: {_fmt(plan.get('total_orders'))} OFs agrupadas em "
+        f"{_fmt(plan.get('total_campaigns'))} campanhas de matriz (−{_fmt(saved)} trocas vs. 1 por OF). "
+        f"Máquina: tempo de prensa estimado com kg/h real por matriz. "
+        f"Carga: produção {_fmt(round(prod_h_total))} h + setups {_fmt(round(setup_h_total))} h "
+        f"(setup = {pp.get('setup_hours')} h/troca, {pp.get('hours_per_day')} h/dia útil). "
+        f"<b>{_fmt(plan.get('late_orders'))} OFs ({_fmt(plan.get('late_kg'))} kg) ficam em atraso</b> mesmo otimizado."
+    )
+    plan_shown = min(plan_limit, len(plan_all))
+
     # --- Tabela: carga semanal vs capacidade ---
     week_rows = "".join(
         f"<tr><td>{html.escape(w['week'])}</td>"
@@ -176,6 +227,11 @@ def render_dashboard(data: Dict[str, Any]) -> str:
         open_rows=open_rows,
         fc_press_rows=fc_press_rows,
         risk_rows=risk_rows,
+        plan_rows_html=plan_rows_html,
+        plan_press_rows=plan_press_rows,
+        plan_note=plan_note,
+        plan_shown=_fmt(plan_shown),
+        plan_total=_fmt(len(plan_all)),
         station_clear=html.escape(str(fc.get("station_clear_date") or "—")),
         buffer_days=_fmt(fc.get("buffer_days")),
         otd_note=otd_note,
@@ -259,6 +315,14 @@ _TEMPLATE = """<!DOCTYPE html>
   <h2>OFs com risco de atraso (previsão de entrega &gt; data de entrega)</h2>
   <table><thead><tr><th>OF</th><th>Matriz</th><th>Cliente</th><th>Prensa</th><th class="num">kg pend.</th><th>Entrega</th><th>Extrusão (prev.)</th><th>Entrega (prev.)</th></tr></thead>
   <tbody>{risk_rows}</tbody></table>
+
+  <h2>Proposta de planeamento de produção</h2>
+  <div class="sub">{plan_note}</div>
+  <table style="margin-bottom:16px"><thead><tr><th>Prensa</th><th class="num">OFs</th><th class="num">Campanhas</th><th class="num">Trocas</th><th class="num">Horas prod.</th><th>Conclui em</th></tr></thead>
+  <tbody>{plan_press_rows}</tbody></table>
+  <div class="sub">Sequência proposta (primeiras {plan_shown} de {plan_total} OFs; ↩ = mesma campanha de matriz). Atraso em dias úteis vs. data de entrega.</div>
+  <table><thead><tr><th>Prensa</th><th class="num">Seq</th><th>OF</th><th>Matriz</th><th>Liga</th><th class="num">kg</th><th class="num">kg/h</th><th>Início</th><th>Fim</th><th>Entrega</th><th class="num">Atraso (d)</th></tr></thead>
+  <tbody>{plan_rows_html}</tbody></table>
 
   <div class="two">
     <div>
