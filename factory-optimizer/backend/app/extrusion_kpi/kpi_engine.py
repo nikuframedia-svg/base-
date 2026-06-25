@@ -220,10 +220,14 @@ def _downstream_days(article_type: Optional[int]) -> int:
 # Mapa do código de estado (coluna "Status", sempre preenchida) -> nome PT.
 # Chaveado pelo código numérico inicial para ser robusto a exports onde o
 # texto inglês não vem (ex.: "04 Pre Planned" e "04" mapeiam ambos para 04).
+# Notas de negócio:
+#   00 = material de stock colocado manualmente
+#   01 = testes / matrizes por aprovar / encomendas em espera
+#   02 = igual a pré-planeada (04) mas para ligas duras (6063-T81, 6005, 6082)
 STATUS_CODE_LABELS = {
-    "00": "00 — Por iniciar",
-    "01": "01 — Por iniciar",
-    "02": "02 — Material em supermercado",
+    "00": "00 — Material em stock (manual)",
+    "01": "01 — Testes / matrizes por aprovar",
+    "02": "02 — Pré-planeada (ligas duras)",
     "03": "03 — Por iniciar",
     "04": "04 — Pré-planeada",
     "05": "05 — Planeada",
