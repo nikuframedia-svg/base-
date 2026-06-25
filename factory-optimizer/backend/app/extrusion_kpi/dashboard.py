@@ -281,6 +281,12 @@ _TEMPLATE = """<!DOCTYPE html>
           --warn:#FFB300; --bad:#FF5252; --ok:#00E676; }}
   * {{ box-sizing:border-box; }}
   body {{ margin:0; background:var(--bg); color:var(--txt); font-family:Inter,system-ui,Arial,sans-serif; padding:24px; }}
+  @media print {{
+    @page {{ size:A3 landscape; margin:10mm; }}
+    body {{ -webkit-print-color-adjust:exact; print-color-adjust:exact; padding:0; font-size:11px; }}
+    table {{ break-inside:auto; }} tr {{ break-inside:avoid; }}
+    h2 {{ break-after:avoid; }}
+  }}
   h1 {{ font-size:24px; margin:0 0 4px; }}
   h2 {{ font-size:18px; margin:28px 0 12px; }}
   .sub {{ color:var(--mut); font-size:13px; margin-bottom:8px; }}
