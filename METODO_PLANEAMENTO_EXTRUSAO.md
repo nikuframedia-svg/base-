@@ -95,7 +95,7 @@ Esta data é a **data mais tardia** em que a OF pode entrar na prensa sem falhar
 
 | X | Processo | Lead acabamento | + Embalagem | Lead total a jusante |
 |---|---|---|---|---|
-| 0 | Extrusão (bruto) | — (os 5 d incluem a extrusão) | +3 | **3 d** |
+| 0 | Extrusão (bruto) | — (extrusão = 4 d, modelada pela prensa) | +3 | **3 d** |
 | 1 | Lacado | 7 d | +3 | 10 d |
 | 2 | Lacado efeito madeira | 14 d | +3 | 17 d |
 | 3 | Anodizado | 14 d | +3 | 17 d |
