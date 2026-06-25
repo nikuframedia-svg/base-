@@ -308,6 +308,9 @@ _TEMPLATE = """<!DOCTYPE html>
   @media (max-width:900px) {{ .two {{ grid-template-columns:1fr; }} }}
   .foot {{ color:var(--mut); font-size:12px; margin-top:32px; border-top:1px solid #222; padding-top:12px; }}
   .pill {{ display:inline-block; background:#181818; border:1px solid #222; border-radius:999px; padding:3px 10px; font-size:12px; color:var(--mut); margin-right:6px; }}
+  .legend {{ display:flex; flex-wrap:wrap; gap:10px 18px; background:var(--card2); border:1px solid #222; border-radius:12px; padding:12px 16px; margin:10px 0 4px; font-size:12.5px; }}
+  .legend .it {{ display:flex; align-items:center; gap:7px; color:var(--txt); }}
+  .sw {{ display:inline-block; width:16px; height:12px; border-radius:3px; flex:none; }}
 </style></head>
 <body>
   <h1>Painel de KPIs — Estação de Extrusão</h1>
@@ -362,7 +365,13 @@ _TEMPLATE = """<!DOCTYPE html>
   <table style="margin-bottom:16px"><thead><tr><th>Prensa</th><th class="num">OFs</th><th class="num">Campanhas</th><th class="num">Trocas</th><th class="num">Horas prod.</th><th>Conclui em</th></tr></thead>
   <tbody>{plan_press_rows}</tbody></table>
   <div class="sub">Cadência por liga — {cadence_note}</div>
-  <div class="sub">Sequência proposta (primeiras {plan_shown} de {plan_total} OFs; ↩ = mesma campanha de matriz; ⬣ = liga dura). Atraso em dias úteis vs. data de entrega.</div>
+  <div class="sub">Sequência proposta (primeiras {plan_shown} de {plan_total} OFs). Atraso em dias úteis vs. data de entrega.</div>
+  <div class="legend">
+    <span class="it"><span class="sw" style="background:rgba(255,179,0,.18);border:1px solid var(--warn)"></span> ⬣ Liga dura (6063-T8x / 6005 / 6082) — extrude mais devagar</span>
+    <span class="it">↩ Mesma campanha de matriz (sem troca)</span>
+    <span class="it"><span style="color:var(--bad);font-weight:600">+12</span> Atraso (dias) — entrega prevista &gt; data de entrega</span>
+    <span class="it"><span class="sw" style="background:var(--ok)"></span> Util. &lt;80% &nbsp;<span class="sw" style="background:var(--warn)"></span> 80–95% &nbsp;<span class="sw" style="background:var(--bad)"></span> &gt;95%</span>
+  </div>
   <table><thead><tr><th>Prensa</th><th class="num">Seq</th><th>OF</th><th>Matriz</th><th>Liga</th><th>Processo</th><th class="num">kg</th><th class="num">kg/h</th><th>Início</th><th>Fim</th><th>Entrega</th><th class="num">Atraso (d)</th></tr></thead>
   <tbody>{plan_rows_html}</tbody></table>
 
