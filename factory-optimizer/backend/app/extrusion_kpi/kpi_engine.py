@@ -58,6 +58,10 @@ class ExtrusionKPIConfig:
     # Parâmetros da proposta de planeamento (sequenciação por prensa).
     plan_hours_per_day: float = 24.0     # horas de produção por dia útil
     plan_setup_hours: float = 0.3        # tempo de troca de matriz (campanha)
+    # Fator de cadência das ligas duras (6063-T8x/6005/6082): multiplica o kg/h
+    # estimado. 1.0 = sem ajuste (o log da prensa não regista a liga). Defina
+    # <1 quando tiver a perda de velocidade real (ex.: 0.7 = -30%).
+    hard_alloy_speed_factor: float = 1.0
 
     def resolve(self) -> "ExtrusionKPIConfig":
         """Preenche caminhos em falta procurando por padrão no data_dir."""
@@ -168,6 +172,7 @@ _ORDER_COLS = {
     "Kgs Produzido OF": "kg_produced",
     "Matriz": "die",
     "Liga Planeamento": "alloy",
+    "Composto Liga": "composto",
     "Diametro": "diameter",
     "Nome Cliente": "customer",
     "Nr. Cliente": "customer_nr",
@@ -198,6 +203,13 @@ ARTICLE_TYPE = {
     9: ("Assemblado", 7),  # lead time não especificado -> assume 7
 }
 PACKING_DAYS = 3
+
+
+def _is_hard_alloy(composto: Any) -> bool:
+    """Liga dura = 6063-T8x / 6005 / 6082 (extrudem mais devagar).
+    Reconhecida pelo código de Composto Liga (ex.: 606381, 600500, 6005A, 608200)."""
+    c = str(composto or "").upper().strip()
+    return c.startswith("60638") or c.startswith("6005") or c.startswith("6082")
 
 
 def _article_type(*items) -> Optional[int]:
@@ -276,6 +288,7 @@ def _read_order_book(path: str, sheet: str) -> List[Dict[str, Any]]:
             "kg_pending": _as_float(get(r, "kg_pending")) or 0.0,
             "die": get(r, "die"),
             "alloy": get(r, "alloy"),
+            "composto": get(r, "composto"),
             "diameter": get(r, "diameter"),
             "customer": get(r, "customer") or get(r, "customer_nr"),
             "due_date": _as_date(get(r, "due_date")),
@@ -483,15 +496,20 @@ def compute_production_plan(
     buffer_days = cfg.downstream_buffer_days
     nominal = cfg.capacity_kg_h or {}
     fallback_rate = (statistics.median(list(die_kg_h.values())) if die_kg_h else 1500) or 1500
+    hard_factor = cfg.hard_alloy_speed_factor or 1.0
 
     def rate_for(o):
         r = die_kg_h.get(o.get("die"))
         if r and r > 0:
-            return r, "matriz"
-        nr = nominal.get(o.get("press"))
-        if nr and nr > 0:
-            return nr, "prensa"
-        return fallback_rate, "global"
+            src = "matriz"
+        elif nominal.get(o.get("press")):
+            r, src = nominal[o.get("press")], "prensa"
+        else:
+            r, src = fallback_rate, "global"
+        if o.get("hard_alloy") and hard_factor != 1.0:
+            r = r * hard_factor
+            src += "·dura"
+        return r, src
 
     by_press: Dict[Any, List[Dict[str, Any]]] = defaultdict(list)
     for o in open_orders:
@@ -539,6 +557,8 @@ def compute_production_plan(
                 "downstream_days": o.get("downstream_days"),
                 "die": die,
                 "alloy": o.get("alloy"),
+                "composto": o.get("composto"),
+                "hard_alloy": bool(o.get("hard_alloy")),
                 "customer": o.get("customer"),
                 "kg": round(o["kg_pending"]),
                 "rate_kg_h": round(rate),
@@ -563,6 +583,19 @@ def compute_production_plan(
         }
 
     late_rows = [r for r in plan_rows if r["late"]]
+
+    # Cadência efetiva (kg/h real) por tipo de liga: dura vs macia.
+    def _cadence(rows):
+        kg = sum(r["kg"] for r in rows)
+        hours = sum(r["kg"] / r["rate_kg_h"] for r in rows if r["rate_kg_h"])
+        return {
+            "orders": len(rows),
+            "kg": round(kg),
+            "kg_h": round(kg / hours) if hours else None,
+        }
+    hard_rows = [r for r in plan_rows if r["hard_alloy"]]
+    soft_rows = [r for r in plan_rows if not r["hard_alloy"]]
+
     return {
         "params": {
             "hours_per_day": hpd,
@@ -575,6 +608,7 @@ def compute_production_plan(
         "total_setups": sum(v["setups"] for v in press_summary.values()),
         "late_orders": len(late_rows),
         "late_kg": round(sum(r["kg"] for r in late_rows)),
+        "alloy_cadence": {"hard": _cadence(hard_rows), "soft": _cadence(soft_rows)},
         # tabela ordenada por prensa e sequência (limitada para visualização)
         "rows": sorted(plan_rows, key=lambda r: (str(r["press"]), r["seq"])),
     }
@@ -618,6 +652,7 @@ def compute_kpis(config: Optional[ExtrusionKPIConfig] = None) -> Dict[str, Any]:
         o["article_type"] = at
         o["process"] = ARTICLE_TYPE.get(at, ("(desconhecido)", 0))[0] if at is not None else "(bruto)"
         o["downstream_days"] = _downstream_days(at)
+        o["hard_alloy"] = _is_hard_alloy(o.get("composto"))
 
     today = cfg.today
     if today is None and runs:

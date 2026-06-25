@@ -136,11 +136,19 @@ def render_dashboard(data: Dict[str, Any]) -> str:
         txt = f"+{d}" if d > 0 else str(d)
         return f"<td class='num {cls}'>{txt}</td>"
 
+    def _alloy_cell(r):
+        c = html.escape(str(r.get("composto") or "—"))
+        if r.get("hard_alloy"):
+            return f"<td class='hard'>⬣ {c}</td>"
+        return f"<td>{c}</td>"
+
     plan_rows_html = "".join(
-        f"<tr><td>{html.escape(str(r['press']))}</td>"
+        f"<tr class='{'hardrow' if r.get('hard_alloy') else ''}'>"
+        f"<td>{html.escape(str(r['press']))}</td>"
         f"<td class='num'>{r['seq']}</td>"
         f"<td>{html.escape(str(r.get('of') or '—'))}</td>"
         f"<td>{html.escape(str(r['die']))}{' ↩' if r.get('campaign_with_prev') else ''}</td>"
+        f"{_alloy_cell(r)}"
         f"<td>{html.escape(str(r.get('process') or ''))}</td>"
         f"<td class='num'>{_fmt(r['kg'])}</td>"
         f"<td class='num'>{_fmt(r['rate_kg_h'])}</td>"
@@ -149,7 +157,20 @@ def render_dashboard(data: Dict[str, Any]) -> str:
         f"<td>{html.escape(str(r['due_date'] or '—'))}</td>"
         f"{_delay_cell(r['delay_days'])}</tr>"
         for r in plan_all[:plan_limit]
-    ) or "<tr><td colspan=11>Sem dados</td></tr>"
+    ) or "<tr><td colspan=12>Sem dados</td></tr>"
+
+    # Cadência por tipo de liga (com ressalva: log não regista a liga)
+    ac = plan.get("alloy_cadence", {})
+    hard_c, soft_c = ac.get("hard", {}), ac.get("soft", {})
+    cadence_note = (
+        f"Liga dura (6063-T8x/6005/6082): <b>{_fmt(hard_c.get('orders'))} OFs</b>, "
+        f"{_fmt(hard_c.get('kg'))} kg, cadência <b>{_fmt(hard_c.get('kg_h'))} kg/h</b>. "
+        f"Liga macia: {_fmt(soft_c.get('orders'))} OFs, {_fmt(soft_c.get('kg'))} kg, "
+        f"{_fmt(soft_c.get('kg_h'))} kg/h. "
+        f"<i>Ressalva: o log da prensa não regista a liga — o kg/h por matriz é uma média de todas "
+        f"as ligas que a matriz correu, por isso esta comparação não isola o efeito da liga dura. "
+        f"Defina <code>hard_alloy_speed_factor</code> com a perda real para o plano refletir a quebra.</i>"
+    )
 
     plan_press_rows = "".join(
         f"<tr><td>{html.escape(str(p))}</td>"
@@ -242,6 +263,7 @@ def render_dashboard(data: Dict[str, Any]) -> str:
         plan_rows_html=plan_rows_html,
         plan_press_rows=plan_press_rows,
         plan_note=plan_note,
+        cadence_note=cadence_note,
         plan_shown=_fmt(plan_shown),
         plan_total=_fmt(len(plan_all)),
         station_clear=html.escape(str(fc.get("station_clear_date") or "—")),
@@ -276,6 +298,8 @@ _TEMPLATE = """<!DOCTYPE html>
   th {{ color:var(--mut); font-weight:500; background:#181818; position:sticky; top:0; }}
   td.num {{ text-align:right; font-variant-numeric:tabular-nums; }}
   td.bad-t {{ color:var(--bad); font-weight:500; }}
+  td.hard {{ color:var(--warn); font-weight:600; }}
+  tr.hardrow td {{ background:rgba(255,179,0,.06); }}
   tr:last-child td {{ border-bottom:none; }}
   .bar {{ background:#222; border-radius:6px; height:10px; width:120px; }}
   .bar-f {{ height:10px; border-radius:6px; }}
@@ -337,8 +361,9 @@ _TEMPLATE = """<!DOCTYPE html>
   <div class="sub">{plan_note}</div>
   <table style="margin-bottom:16px"><thead><tr><th>Prensa</th><th class="num">OFs</th><th class="num">Campanhas</th><th class="num">Trocas</th><th class="num">Horas prod.</th><th>Conclui em</th></tr></thead>
   <tbody>{plan_press_rows}</tbody></table>
-  <div class="sub">Sequência proposta (primeiras {plan_shown} de {plan_total} OFs; ↩ = mesma campanha de matriz). Atraso em dias úteis vs. data de entrega.</div>
-  <table><thead><tr><th>Prensa</th><th class="num">Seq</th><th>OF</th><th>Matriz</th><th>Processo</th><th class="num">kg</th><th class="num">kg/h</th><th>Início</th><th>Fim</th><th>Entrega</th><th class="num">Atraso (d)</th></tr></thead>
+  <div class="sub">Cadência por liga — {cadence_note}</div>
+  <div class="sub">Sequência proposta (primeiras {plan_shown} de {plan_total} OFs; ↩ = mesma campanha de matriz; ⬣ = liga dura). Atraso em dias úteis vs. data de entrega.</div>
+  <table><thead><tr><th>Prensa</th><th class="num">Seq</th><th>OF</th><th>Matriz</th><th>Liga</th><th>Processo</th><th class="num">kg</th><th class="num">kg/h</th><th>Início</th><th>Fim</th><th>Entrega</th><th class="num">Atraso (d)</th></tr></thead>
   <tbody>{plan_rows_html}</tbody></table>
 
   <div class="two">
